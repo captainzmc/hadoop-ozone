@@ -24,6 +24,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -243,9 +244,9 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
   }
 
   @Override
-  public void renameKey(String key, String newKeyName) throws IOException {
+  public void renameKey(Map<String, String> keyMap) throws IOException {
     incrementCounter(Statistic.OBJECTS_RENAMED);
-    bucket.renameKey(key, newKeyName);
+    bucket.renameKey(keyMap);
   }
 
   /**
@@ -272,15 +273,15 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
   /**
    * Helper method to delete an object specified by key name in bucket.
    *
-   * @param keyName key name to be deleted
+   * @param keyNameList key name list to be deleted
    * @return true if the key is deleted, false otherwise
    */
   @Override
-  public boolean deleteObject(String keyName) {
-    LOG.trace("issuing delete for key {}", keyName);
+  public boolean deleteObject(List<String> keyNameList) {
+    LOG.trace("issuing delete for key {}", keyNameList);
     try {
       incrementCounter(Statistic.OBJECTS_DELETED);
-      bucket.deleteKey(keyName);
+      bucket.deleteKeyList(keyNameList);
       return true;
     } catch (IOException ioe) {
       LOG.error("delete key failed {}", ioe.getMessage());

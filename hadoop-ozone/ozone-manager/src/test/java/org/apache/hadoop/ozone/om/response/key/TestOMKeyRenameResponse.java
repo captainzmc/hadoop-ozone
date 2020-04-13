@@ -18,8 +18,11 @@
 
 package org.apache.hadoop.ozone.om.response.key;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
+import org.apache.hadoop.ozone.om.helpers.RenameInfo;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -45,9 +48,11 @@ public class TestOMKeyRenameResponse extends TestOMKeyResponse {
             .build();
 
     String toKeyName = UUID.randomUUID().toString();
-
+    List<RenameInfo> renameInfoList = new ArrayList<>();
+    RenameInfo renameInfo = new  RenameInfo(keyName, omKeyInfo, toKeyName);
+    renameInfoList.add(renameInfo);
     OMKeyRenameResponse omKeyRenameResponse = new OMKeyRenameResponse(
-        omResponse, keyName, toKeyName, omKeyInfo);
+              omResponse, renameInfoList);
 
     String ozoneFromKey = omMetadataManager.getOzoneKey(volumeName, bucketName,
         keyName);
@@ -85,8 +90,11 @@ public class TestOMKeyRenameResponse extends TestOMKeyResponse {
 
     String toKeyName = UUID.randomUUID().toString();
 
+    List<RenameInfo> renameInfoList = new ArrayList<>();
+    RenameInfo renameInfo = new  RenameInfo(keyName, omKeyInfo, toKeyName);
+    renameInfoList.add(renameInfo);
     OMKeyRenameResponse omKeyRenameResponse = new OMKeyRenameResponse(
-        omResponse, keyName, toKeyName, omKeyInfo);
+        omResponse, renameInfoList);
 
     String ozoneFromKey = omMetadataManager.getOzoneKey(volumeName, bucketName,
         keyName);
@@ -125,9 +133,12 @@ public class TestOMKeyRenameResponse extends TestOMKeyResponse {
             .build();
 
 
+    List<RenameInfo> renameInfoList = new ArrayList<>();
     // Passing toKeyName also same as KeyName.
+    RenameInfo renameInfo = new  RenameInfo(keyName, omKeyInfo, keyName);
+    renameInfoList.add(renameInfo);
     OMKeyRenameResponse omKeyRenameResponse = new OMKeyRenameResponse(
-        omResponse, keyName, keyName, omKeyInfo);
+        omResponse, renameInfoList);
 
     String ozoneFromKey = omMetadataManager.getOzoneKey(volumeName, bucketName,
         keyName);

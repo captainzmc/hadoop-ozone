@@ -668,11 +668,27 @@ public class RpcClient implements ClientProtocol {
       throws IOException {
     HddsClientUtils.verifyResourceName(volumeName, bucketName);
     Preconditions.checkNotNull(keyName);
+    List<String> keyNameList = new ArrayList<>();
+    keyNameList.add(keyName);
     OmKeyArgs keyArgs = new OmKeyArgs.Builder()
         .setVolumeName(volumeName)
         .setBucketName(bucketName)
-        .setKeyName(keyName)
+        .setKeyNameList(keyNameList)
         .build();
+    ozoneManagerClient.deleteKey(keyArgs);
+  }
+
+  @Override
+  public void deleteKeyList(
+          String volumeName, String bucketName, List<String> keyNameList)
+          throws IOException {
+    HddsClientUtils.verifyResourceName(volumeName, bucketName);
+    Preconditions.checkNotNull(keyNameList);
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+            .setVolumeName(volumeName)
+            .setBucketName(bucketName)
+            .setKeyNameList(keyNameList)
+            .build();
     ozoneManagerClient.deleteKey(keyArgs);
   }
 
@@ -681,12 +697,27 @@ public class RpcClient implements ClientProtocol {
       String fromKeyName, String toKeyName) throws IOException {
     HddsClientUtils.verifyResourceName(volumeName, bucketName);
     HddsClientUtils.checkNotNull(fromKeyName, toKeyName);
+    Map<String, String> keyMap = new HashMap<>();
+    keyMap.put(fromKeyName, toKeyName);
     OmKeyArgs keyArgs = new OmKeyArgs.Builder()
         .setVolumeName(volumeName)
         .setBucketName(bucketName)
-        .setKeyName(fromKeyName)
+        .setRenameKeyMap(keyMap)
         .build();
-    ozoneManagerClient.renameKey(keyArgs, toKeyName);
+    ozoneManagerClient.renameKey(keyArgs, "");
+  }
+
+  @Override
+  public void renameKeyMap(String volumeName, String bucketName,
+                           Map<String, String> keyMap) throws IOException {
+    HddsClientUtils.verifyResourceName(volumeName, bucketName);
+    HddsClientUtils.checkNotNull(keyMap);
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+            .setVolumeName(volumeName)
+            .setBucketName(bucketName)
+            .setRenameKeyMap(keyMap)
+            .build();
+    ozoneManagerClient.renameKey(keyArgs, "");
   }
 
   @Override

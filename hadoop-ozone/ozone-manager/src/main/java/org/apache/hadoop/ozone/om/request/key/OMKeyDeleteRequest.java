@@ -19,9 +19,12 @@
 package org.apache.hadoop.ozone.om.request.key;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.Optional;
+import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
@@ -97,7 +100,7 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
 
     String volumeName = deleteKeyArgs.getVolumeName();
     String bucketName = deleteKeyArgs.getBucketName();
-    String keyName = deleteKeyArgs.getKeyName();
+    List<String> keyNameList = deleteKeyArgs.getKeyNameListList();
 
     OMMetrics omMetrics = ozoneManager.getMetrics();
     omMetrics.incNumKeyDeletes();
@@ -116,51 +119,53 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
     boolean acquiredLock = false;
     OMClientResponse omClientResponse = null;
     Result result = null;
+    List<OmKeyInfo> omKeyInfoList= new ArrayList<>();
     try {
-      // check Acl
-      checkKeyAcls(ozoneManager, volumeName, bucketName, keyName,
-          IAccessAuthorizer.ACLType.DELETE, OzoneObj.ResourceType.KEY);
-
-      String objectKey = omMetadataManager.getOzoneKey(
-          volumeName, bucketName, keyName);
-
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
-
-      // Validate bucket and volume exists or not.
-      validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
-
-      OmKeyInfo omKeyInfo = omMetadataManager.getKeyTable().get(objectKey);
-      if (omKeyInfo == null) {
+      if (keyNameList.size() ==0) {
         throw new OMException("Key not found", KEY_NOT_FOUND);
       }
+      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+              volumeName, bucketName);
+      // Validate bucket and volume exists or not.
+      validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
+      Table<String, OmKeyInfo> keyTable = omMetadataManager.getKeyTable();
+      for (String keyName : keyNameList) {
+        // check Acl
+        checkKeyAcls(ozoneManager, volumeName, bucketName, keyName,
+                IAccessAuthorizer.ACLType.DELETE, OzoneObj.ResourceType.KEY);
+        String objectKey = omMetadataManager.getOzoneKey(
+                volumeName, bucketName, keyName);
+        OmKeyInfo omKeyInfo = keyTable.get(objectKey);
+        if (omKeyInfo == null) {
+          throw new OMException("Key not found", KEY_NOT_FOUND);
+        }
 
-      // Check if this transaction is a replay of ratis logs.
-      if (isReplay(ozoneManager, omKeyInfo, trxnLogIndex)) {
-        // Replay implies the response has already been returned to
-        // the client. So take no further action and return a dummy
-        // OMClientResponse.
-        throw new OMReplayException();
+        // Check if this transaction is a replay of ratis logs.
+        if (isReplay(ozoneManager, omKeyInfo, trxnLogIndex)) {
+          // Replay implies the response has already been returned to
+          // the client. So take no further action and return a dummy
+          // OMClientResponse.
+          throw new OMReplayException();
+        }
+
+        // Set the UpdateID to current transactionLogIndex
+        omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
+
+        // Update table cache.
+        keyTable.addCacheEntry(
+                new CacheKey<>(omMetadataManager.getOzoneKey(
+                        volumeName, bucketName, keyName)),
+                new CacheValue<>(Optional.absent(), trxnLogIndex));
+
+        // No need to add cache entries to delete table. As delete table will
+        // be used by DeleteKeyService only, not used for any client response
+        // validation, so we don't need to add to cache.
+        // TODO: Revisit if we need it later.
+        omKeyInfoList.add(omKeyInfo);
       }
-
-      // Set the UpdateID to current transactionLogIndex
-      omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
-
-      // Update table cache.
-      omMetadataManager.getKeyTable().addCacheEntry(
-          new CacheKey<>(omMetadataManager.getOzoneKey(volumeName, bucketName,
-              keyName)),
-          new CacheValue<>(Optional.absent(), trxnLogIndex));
-
-      // No need to add cache entries to delete table. As delete table will
-      // be used by DeleteKeyService only, not used for any client response
-      // validation, so we don't need to add to cache.
-      // TODO: Revisit if we need it later.
-
       omClientResponse = new OMKeyDeleteResponse(omResponse
-          .setDeleteKeyResponse(DeleteKeyResponse.newBuilder()).build(),
-          omKeyInfo, ozoneManager.isRatisEnabled());
-
+              .setDeleteKeyResponse(DeleteKeyResponse.newBuilder()).build(),
+              omKeyInfoList, ozoneManager.isRatisEnabled());
       result = Result.SUCCESS;
     } catch (IOException ex) {
       if (ex instanceof OMReplayException) {
@@ -192,7 +197,7 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
     case SUCCESS:
       omMetrics.decNumKeys();
       LOG.debug("Key deleted. Volume:{}, Bucket:{}, Key:{}", volumeName,
-          bucketName, keyName);
+          bucketName, keyNameList);
       break;
     case REPLAY:
       LOG.debug("Replayed Transaction {} ignored. Request: {}", trxnLogIndex,
@@ -201,7 +206,7 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
     case FAILURE:
       omMetrics.incNumKeyDeleteFails();
       LOG.error("Key delete failed. Volume:{}, Bucket:{}, Key{}. Exception:{}",
-          volumeName, bucketName, keyName, exception);
+          volumeName, bucketName, keyNameList, exception);
       break;
     default:
       LOG.error("Unrecognized Result for OMKeyDeleteRequest: {}",

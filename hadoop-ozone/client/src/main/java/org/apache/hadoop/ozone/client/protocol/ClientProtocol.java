@@ -289,6 +289,17 @@ public interface ClientProtocol {
       throws IOException;
 
   /**
+   * Deletes key List.
+   * @param volumeName Name of the Volume
+   * @param bucketName Name of the Bucket
+   * @param keyNameList List of the Key
+   * @throws IOException
+   */
+  void deleteKeyList(String volumeName, String bucketName,
+                     List<String> keyNameList)
+          throws IOException;
+
+  /**
    * Renames an existing key within a bucket.
    * @param volumeName Name of the Volume
    * @param bucketName Name of the Bucket
@@ -297,7 +308,18 @@ public interface ClientProtocol {
    * @throws IOException
    */
   void renameKey(String volumeName, String bucketName, String fromKeyName,
-      String toKeyName) throws IOException;
+                 String toKeyName) throws IOException;
+
+  /**
+   * Renames an existing key within a bucket.
+   * @param volumeName Name of the Volume
+   * @param bucketName Name of the Bucket
+   * @param keyMap map of key and new key
+   * @throws IOException
+   */
+  void renameKeyMap(String volumeName, String bucketName,
+                    Map<String, String> keyMap)
+          throws IOException;
 
   /**
    * Returns list of Keys in {Volume/Bucket} that matches the keyPrefix,

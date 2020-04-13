@@ -49,9 +49,10 @@ public class TestOMKeyDeleteResponse extends TestOMKeyResponse {
             .setStatus(OzoneManagerProtocolProtos.Status.OK)
             .setCmdType(OzoneManagerProtocolProtos.Type.DeleteKey)
             .build();
-
+    List<OmKeyInfo> omKeyInfoList = new ArrayList<>();
+    omKeyInfoList.add(omKeyInfo);
     OMKeyDeleteResponse omKeyDeleteResponse = new OMKeyDeleteResponse(
-        omResponse, omKeyInfo, true);
+        omResponse, omKeyInfoList, true);
 
     String ozoneKey = omMetadataManager.getOzoneKey(volumeName, bucketName,
         keyName);
@@ -112,8 +113,10 @@ public class TestOMKeyDeleteResponse extends TestOMKeyResponse {
             .setCmdType(OzoneManagerProtocolProtos.Type.DeleteKey)
             .build();
 
+    List<OmKeyInfo> omKeyInfoList = new ArrayList<>();
+    omKeyInfoList.add(omKeyInfo);
     OMKeyDeleteResponse omKeyDeleteResponse = new OMKeyDeleteResponse(
-        omResponse, omKeyInfo, true);
+        omResponse, omKeyInfoList, true);
 
     Assert.assertTrue(omMetadataManager.getKeyTable().isExist(ozoneKey));
     omKeyDeleteResponse.addToDBBatch(omMetadataManager, batchOperation);
@@ -141,8 +144,10 @@ public class TestOMKeyDeleteResponse extends TestOMKeyResponse {
             .setCmdType(OzoneManagerProtocolProtos.Type.DeleteKey)
             .build();
 
+    List<OmKeyInfo> omKeyInfoList = new ArrayList<>();
+    omKeyInfoList.add(omKeyInfo);
     OMKeyDeleteResponse omKeyDeleteResponse = new OMKeyDeleteResponse(
-        omResponse, omKeyInfo, true);
+        omResponse, omKeyInfoList, true);
 
     String ozoneKey = omMetadataManager.getOzoneKey(volumeName, bucketName,
         keyName);

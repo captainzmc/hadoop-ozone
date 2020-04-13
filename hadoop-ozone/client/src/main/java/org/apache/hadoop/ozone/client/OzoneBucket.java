@@ -382,9 +382,23 @@ public class OzoneBucket extends WithMetadata {
     proxy.deleteKey(volumeName, name, key);
   }
 
+  /**
+   * Deletes key from the bucket.
+   * @param keyList List of the key name to be deleted.
+   * @throws IOException
+   */
+  public void deleteKeyList(List<String> keyList) throws IOException {
+    proxy.deleteKeyList(volumeName, name, keyList);
+  }
+
   public void renameKey(String fromKeyName, String toKeyName)
       throws IOException {
     proxy.renameKey(volumeName, name, fromKeyName, toKeyName);
+  }
+
+  public void renameKey(Map<String, String> keyMap)
+      throws IOException {
+    proxy.renameKeyMap(volumeName, name, keyMap);
   }
 
   /**

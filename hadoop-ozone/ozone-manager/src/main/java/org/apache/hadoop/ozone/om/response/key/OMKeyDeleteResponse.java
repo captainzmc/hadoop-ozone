@@ -30,6 +30,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.Nullable;
 import javax.annotation.Nonnull;
 
@@ -37,13 +38,13 @@ import javax.annotation.Nonnull;
  * Response for DeleteKey request.
  */
 public class OMKeyDeleteResponse extends OMClientResponse {
-  private OmKeyInfo omKeyInfo;
+  private List<OmKeyInfo> omKeyInfoList;
   private boolean isRatisEnabled;
 
   public OMKeyDeleteResponse(@Nonnull OMResponse omResponse,
-      @Nonnull OmKeyInfo omKeyInfo, boolean isRatisEnabled) {
+      @Nonnull List<OmKeyInfo> omKeyInfoList, boolean isRatisEnabled) {
     super(omResponse);
-    this.omKeyInfo = omKeyInfo;
+    this.omKeyInfoList = omKeyInfoList;
     this.isRatisEnabled = isRatisEnabled;
   }
 
@@ -60,32 +61,35 @@ public class OMKeyDeleteResponse extends OMClientResponse {
   public void addToDBBatch(OMMetadataManager omMetadataManager,
       BatchOperation batchOperation) throws IOException {
 
-    // For OmResponse with failure, this should do nothing. This method is
-    // not called in failure scenario in OM code.
-    if (getOMResponse().getStatus() == OzoneManagerProtocolProtos.Status.OK) {
-      String ozoneKey = omMetadataManager.getOzoneKey(omKeyInfo.getVolumeName(),
-          omKeyInfo.getBucketName(), omKeyInfo.getKeyName());
-      omMetadataManager.getKeyTable().deleteWithBatch(batchOperation,
-          ozoneKey);
+    for(OmKeyInfo omKeyInfo : omKeyInfoList) {
+      // For OmResponse with failure, this should do nothing. This method is
+      // not called in failure scenario in OM code.
+      if (getOMResponse().getStatus() == OzoneManagerProtocolProtos.Status.OK) {
+        String ozoneKey = omMetadataManager.getOzoneKey(
+                omKeyInfo.getVolumeName(), omKeyInfo.getBucketName(),
+                omKeyInfo.getKeyName());
+        omMetadataManager.getKeyTable().deleteWithBatch(batchOperation,
+                ozoneKey);
 
-      // If Key is not empty add this to delete table.
-      if (!isKeyEmpty(omKeyInfo)) {
-        // If a deleted key is put in the table where a key with the same
-        // name already exists, then the old deleted key information would be
-        // lost. To avoid this, first check if a key with same name exists.
-        // deletedTable in OM Metadata stores <KeyName, RepeatedOMKeyInfo>.
-        // The RepeatedOmKeyInfo is the structure that allows us to store a
-        // list of OmKeyInfo that can be tied to same key name. For a keyName
-        // if RepeatedOMKeyInfo structure is null, we create a new instance,
-        // if it is not null, then we simply add to the list and store this
-        // instance in deletedTable.
-        RepeatedOmKeyInfo repeatedOmKeyInfo =
-            omMetadataManager.getDeletedTable().get(ozoneKey);
-        repeatedOmKeyInfo = OmUtils.prepareKeyForDelete(
-            omKeyInfo, repeatedOmKeyInfo, omKeyInfo.getUpdateID(),
-            isRatisEnabled);
-        omMetadataManager.getDeletedTable().putWithBatch(batchOperation,
-            ozoneKey, repeatedOmKeyInfo);
+        // If Key is not empty add this to delete table.
+        if (!isKeyEmpty(omKeyInfo)) {
+          // If a deleted key is put in the table where a key with the same
+          // name already exists, then the old deleted key information would be
+          // lost. To avoid this, first check if a key with same name exists.
+          // deletedTable in OM Metadata stores <KeyName, RepeatedOMKeyInfo>.
+          // The RepeatedOmKeyInfo is the structure that allows us to store a
+          // list of OmKeyInfo that can be tied to same key name. For a keyName
+          // if RepeatedOMKeyInfo structure is null, we create a new instance,
+          // if it is not null, then we simply add to the list and store this
+          // instance in deletedTable.
+          RepeatedOmKeyInfo repeatedOmKeyInfo =
+                  omMetadataManager.getDeletedTable().get(ozoneKey);
+          repeatedOmKeyInfo = OmUtils.prepareKeyForDelete(
+                  omKeyInfo, repeatedOmKeyInfo, omKeyInfo.getUpdateID(),
+                  isRatisEnabled);
+          omMetadataManager.getDeletedTable().putWithBatch(batchOperation,
+                  ozoneKey, repeatedOmKeyInfo);
+        }
       }
     }
   }

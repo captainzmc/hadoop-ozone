@@ -385,6 +385,9 @@ public final class OzoneConfigKeys {
   // OzoneFileSystem.initialize.
   public static final String OZONE_FS_ISOLATED_CLASSLOADER =
       "ozone.fs.isolated-classloader";
+  public static final String OZONE_FS_ITERATE_BATCH_SIZE =
+          "ozone.fs.iterate.batch-size";
+  public static final int OZONE_FS_ITERATE_BATCH_SIZE_DEFAULT = 1;
 
   // Ozone Client Retry and Failover configurations
   public static final String OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY =

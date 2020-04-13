@@ -692,7 +692,7 @@ message ListBucketsResponse {
 message KeyArgs {
     required string volumeName = 1;
     required string bucketName = 2;
-    required string keyName = 3;
+    optional string keyName = 3;
     optional uint64 dataSize = 4;
     optional hadoop.hdds.ReplicationType type = 5;
     optional hadoop.hdds.ReplicationFactor factor = 6;
@@ -707,6 +707,8 @@ message KeyArgs {
     // request type.
     optional uint64 modificationTime = 13;
     optional bool sortDatanodes = 14;
+    repeated string keyNameList = 15;
+    repeated hadoop.hdds.KeyValue renameKeyMap = 16;
 }
 
 message KeyLocation {
@@ -840,7 +842,7 @@ message LookupKeyResponse {
 
 message RenameKeyRequest{
     required KeyArgs keyArgs = 1;
-    required string toKeyName = 2;
+    optional string toKeyName = 2;
 }
 
 message RenameKeyResponse{
@@ -858,6 +860,7 @@ message DeleteKeyResponse {
     // (similar to a cookie).
     optional uint64 ID = 3;
     optional uint64 openVersion = 4;
+    repeated KeyInfo keyInfoList = 5;
 }
 
 message DeletedKeys {

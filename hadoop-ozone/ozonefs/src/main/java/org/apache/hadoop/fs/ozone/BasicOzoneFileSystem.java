@@ -23,10 +23,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -281,9 +284,12 @@ public class BasicOzoneFileSystem extends FileSystem {
     }
 
     @Override
-    boolean processKey(String key) throws IOException {
-      String newKeyName = dstKey.concat(key.substring(srcKey.length()));
-      adapter.renameKey(key, newKeyName);
+    boolean processKey(List<String> keyList) throws IOException {
+      Map<String, String> keyMap = new HashMap<>();
+      for(String key : keyList) {
+        keyMap.put(key, dstKey.concat(key.substring(srcKey.length())));
+      }
+      adapter.renameKey(keyMap);
       return true;
     }
   }
@@ -416,17 +422,12 @@ public class BasicOzoneFileSystem extends FileSystem {
     }
 
     @Override
-    boolean processKey(String key) throws IOException {
-      if (key.equals("")) {
-        LOG.trace("Skipping deleting root directory");
-        return true;
-      } else {
-        LOG.trace("deleting key:{}", key);
-        boolean succeed = adapter.deleteObject(key);
-        // if recursive delete is requested ignore the return value of
-        // deleteObject and issue deletes for other keys.
-        return recursive || succeed;
-      }
+    boolean processKey(List<String> key) throws IOException {
+      LOG.trace("deleting key:{}", key);
+      boolean succeed = adapter.deleteObject(key);
+      // if recursive delete is requested ignore the return value of
+      // deleteObject and issue deletes for other keys.
+      return recursive || succeed;
     }
   }
 
@@ -479,7 +480,9 @@ public class BasicOzoneFileSystem extends FileSystem {
       result = innerDelete(f, recursive);
     } else {
       LOG.debug("delete: Path is a file: {}", f);
-      result = adapter.deleteObject(key);
+      List<String> keyList = new ArrayList<>();
+      keyList.add(key);
+      result = adapter.deleteObject(keyList);
     }
 
     if (result) {
@@ -734,7 +737,7 @@ public class BasicOzoneFileSystem extends FileSystem {
      * @return true if we should continue iteration of keys, false otherwise.
      * @throws IOException
      */
-    abstract boolean processKey(String key) throws IOException;
+    abstract boolean processKey(List<String> key) throws IOException;
 
     /**
      * Iterates thorugh all the keys prefixed with the input path's key and
@@ -748,19 +751,34 @@ public class BasicOzoneFileSystem extends FileSystem {
      */
     boolean iterate() throws IOException {
       LOG.trace("Iterating path {}", path);
+      List<String> keyList = new ArrayList<>();
       if (status.isDirectory()) {
         LOG.trace("Iterating directory:{}", pathKey);
         while (keyIterator.hasNext()) {
           BasicKeyInfo key = keyIterator.next();
           LOG.trace("iterating key:{}", key.getName());
-          if (!processKey(key.getName())) {
+          if (!key.getName().equals("")) {
+            keyList.add(key.getName());
+          }
+          int batchSize = getConf().getInt("ozone.fs.iterate.batch-size", 1);
+          if (keyList.size() >= batchSize) {
+            if (!processKey(keyList)) {
+              return false;
+            } else {
+              keyList.clear();
+            }
+          }
+        }
+        if (keyList.size() > 0) {
+          if (!processKey(keyList)) {
             return false;
           }
         }
         return true;
       } else {
         LOG.trace("iterating file:{}", path);
-        return processKey(pathKey);
+        keyList.add(pathKey);
+        return processKey(keyList);
       }
     }
 

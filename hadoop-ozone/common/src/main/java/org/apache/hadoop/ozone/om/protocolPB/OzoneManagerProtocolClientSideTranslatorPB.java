@@ -893,7 +893,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     KeyArgs keyArgs = KeyArgs.newBuilder()
         .setVolumeName(args.getVolumeName())
         .setBucketName(args.getBucketName())
-        .setKeyName(args.getKeyName())
+        .addAllRenameKeyMap(KeyValueUtil.toProtobuf(args.getRenameKeyMap()))
         .setDataSize(args.getDataSize()).build();
     req.setKeyArgs(keyArgs);
     req.setToKeyName(toKeyName);
@@ -917,7 +917,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     KeyArgs keyArgs = KeyArgs.newBuilder()
         .setVolumeName(args.getVolumeName())
         .setBucketName(args.getBucketName())
-        .setKeyName(args.getKeyName()).build();
+        .addAllKeyNameList(args.getKeyNameList()).build();
     req.setKeyArgs(keyArgs);
 
     OMRequest omRequest = createOMRequest(Type.DeleteKey)

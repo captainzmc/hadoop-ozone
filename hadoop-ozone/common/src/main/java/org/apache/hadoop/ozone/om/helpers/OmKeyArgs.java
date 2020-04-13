@@ -48,14 +48,16 @@ public final class OmKeyArgs implements Auditable {
   private boolean refreshPipeline;
   private boolean sortDatanodesInPipeline;
   private List<OzoneAcl> acls;
+  private List<String> keyNameList;
+  private Map<String, String> renameKeyMap;
 
   @SuppressWarnings("parameternumber")
   private OmKeyArgs(String volumeName, String bucketName, String keyName,
       long dataSize, ReplicationType type, ReplicationFactor factor,
       List<OmKeyLocationInfo> locationInfoList, boolean isMultipart,
-      String uploadID, int partNumber,
-      Map<String, String> metadataMap, boolean refreshPipeline,
-      List<OzoneAcl> acls, boolean sortDatanode) {
+      String uploadID, int partNumber, Map<String, String> metadataMap,
+      boolean refreshPipeline, List<OzoneAcl> acls, boolean sortDatanode,
+      List<String> keyNameList, Map<String, String> renameKeyMap) {
     this.volumeName = volumeName;
     this.bucketName = bucketName;
     this.keyName = keyName;
@@ -70,6 +72,8 @@ public final class OmKeyArgs implements Auditable {
     this.refreshPipeline = refreshPipeline;
     this.acls = acls;
     this.sortDatanodesInPipeline = sortDatanode;
+    this.keyNameList = keyNameList;
+    this.renameKeyMap = renameKeyMap;
   }
 
   public boolean getIsMultipartKey() {
@@ -140,6 +144,14 @@ public final class OmKeyArgs implements Auditable {
     return sortDatanodesInPipeline;
   }
 
+  public List<String> getKeyNameList() {
+    return keyNameList;
+  }
+
+  public Map<String, String> getRenameKeyMap() {
+    return renameKeyMap;
+  }
+
   @Override
   public Map<String, String> toAuditMap() {
     Map<String, String> auditMap = new LinkedHashMap<>();
@@ -180,6 +192,8 @@ public final class OmKeyArgs implements Auditable {
     private boolean refreshPipeline;
     private boolean sortDatanodesInPipeline;
     private List<OzoneAcl> acls;
+    private List<String> keyNameList;
+    private Map<String, String> renameKeyMap = new HashMap<>();
 
     public Builder setVolumeName(String volume) {
       this.volumeName = volume;
@@ -256,11 +270,21 @@ public final class OmKeyArgs implements Auditable {
       return this;
     }
 
+    public Builder setKeyNameList(List<String> keyList) {
+      this.keyNameList = keyList;
+      return this;
+    }
+
+    public Builder setRenameKeyMap(Map<String, String> renameMap) {
+      this.renameKeyMap.putAll(renameMap);
+      return this;
+    }
+
     public OmKeyArgs build() {
       return new OmKeyArgs(volumeName, bucketName, keyName, dataSize, type,
           factor, locationInfoList, isMultipartKey, multipartUploadID,
           multipartUploadPartNumber, metadata, refreshPipeline, acls,
-          sortDatanodesInPipeline);
+          sortDatanodesInPipeline, keyNameList, renameKeyMap);
     }
 
   }

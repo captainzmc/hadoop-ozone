@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.crypto.key.KeyProvider;
 import org.apache.hadoop.fs.Path;
@@ -44,11 +45,11 @@ public interface OzoneClientAdapter {
   OzoneFSOutputStream createFile(String key, short replication,
       boolean overWrite, boolean recursive) throws IOException;
 
-  void renameKey(String key, String newKeyName) throws IOException;
+  void renameKey(Map<String, String> keyMap) throws IOException;
 
   boolean createDirectory(String keyName) throws IOException;
 
-  boolean deleteObject(String keyName);
+  boolean deleteObject(List<String> keyName);
 
   Iterator<BasicKeyInfo> listKeys(String pathKey);
 

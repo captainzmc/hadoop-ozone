@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.ozone.om.request.key;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.Assert;
@@ -197,8 +199,10 @@ public class TestOMKeyDeleteRequest extends TestOMKeyRequest {
    * @return OMRequest
    */
   private OMRequest createDeleteKeyRequest() {
+    List<String> keyNameList = new ArrayList<>();
+    keyNameList.add(keyName);
     KeyArgs keyArgs = KeyArgs.newBuilder().setBucketName(bucketName)
-        .setVolumeName(volumeName).setKeyName(keyName).build();
+        .setVolumeName(volumeName).addAllKeyNameList(keyNameList).build();
 
     DeleteKeyRequest deleteKeyRequest =
         DeleteKeyRequest.newBuilder().setKeyArgs(keyArgs).build();

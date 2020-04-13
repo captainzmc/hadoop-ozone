@@ -18,7 +18,11 @@
 
 package org.apache.hadoop.ozone.om.request.key;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+
+import org.apache.hadoop.ozone.om.helpers.KeyValueUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -287,7 +291,7 @@ public class TestOMKeyRenameRequest extends TestOMKeyRequest {
     // Replay should result in Replay response
     Assert.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         replayResponse.getOMResponse().getStatus());
-    Assert.assertTrue(replayResponse.deleteFromKeyOnly());
+    Assert.assertTrue(replayResponse.deleteFromKeyOnly(keyName, null));
 
     // Commit response to DB
     batchOperation = omMetadataManager.getStore().initBatchOperation();
@@ -327,11 +331,13 @@ public class TestOMKeyRenameRequest extends TestOMKeyRequest {
    * @return OMRequest
    */
   private OMRequest createRenameKeyRequest(String toKeyName) {
-    KeyArgs keyArgs = KeyArgs.newBuilder().setKeyName(keyName)
+    Map<String, String> renameKeyMap = new HashMap<>();
+    renameKeyMap.put(keyName, toKeyName);
+    KeyArgs keyArgs = KeyArgs.newBuilder().addAllRenameKeyMap(
+        KeyValueUtil.toProtobuf(renameKeyMap))
         .setVolumeName(volumeName).setBucketName(bucketName).build();
-
     RenameKeyRequest renameKeyRequest = RenameKeyRequest.newBuilder()
-            .setKeyArgs(keyArgs).setToKeyName(toKeyName).build();
+            .setKeyArgs(keyArgs).build();
 
     return OMRequest.newBuilder()
         .setClientId(UUID.randomUUID().toString())
