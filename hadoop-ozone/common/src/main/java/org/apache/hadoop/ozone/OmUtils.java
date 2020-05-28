@@ -247,6 +247,7 @@ public final class OmUtils {
     case CreateKey:
     case RenameKey:
     case DeleteKey:
+    case DeleteBatchKey:
     case CommitKey:
     case AllocateBlock:
     case InitiateMultiPartUpload:

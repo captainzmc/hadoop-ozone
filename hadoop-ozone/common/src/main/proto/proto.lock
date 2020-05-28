@@ -80,6 +80,10 @@
                 "integer": 37
               },
               {
+                "name": "DeleteBatchKey",
+                "integer": 38
+              },
+              {
                 "name": "InitiateMultiPartUpload",
                 "integer": 45
               },
@@ -703,6 +707,11 @@
                 "type": "AllocateBlockRequest"
               },
               {
+                "id": 38,
+                "name": "deleteBatchKeyRequest",
+                "type": "DeleteBatchKeyRequest"
+              },
+              {
                 "id": 45,
                 "name": "initiateMultiPartUploadRequest",
                 "type": "MultipartInfoInitiateRequest"
@@ -967,6 +976,11 @@
                 "id": 37,
                 "name": "allocateBlockResponse",
                 "type": "AllocateBlockResponse"
+              },
+              {
+                "id": 38,
+                "name": "deleteBatchKeyResponse",
+                "type": "DeleteBatchKeyResponse"
               },
               {
                 "id": 45,
@@ -2401,12 +2415,44 @@
             ]
           },
           {
+            "name": "DeleteBatchKeyRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "keyArgs",
+                "type": "KeyArgs",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "DeleteKeyResponse",
             "fields": [
               {
                 "id": 2,
                 "name": "keyInfo",
                 "type": "KeyInfo"
+              },
+              {
+                "id": 3,
+                "name": "ID",
+                "type": "uint64"
+              },
+              {
+                "id": 4,
+                "name": "openVersion",
+                "type": "uint64"
+              }
+            ]
+          },
+          {
+            "name": "DeleteBatchKeyResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "keyInfo",
+                "type": "KeyInfo",
+                "is_repeated": true
               },
               {
                 "id": 3,
