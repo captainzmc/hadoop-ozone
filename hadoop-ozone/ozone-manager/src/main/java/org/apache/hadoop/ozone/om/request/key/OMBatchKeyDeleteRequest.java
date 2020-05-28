@@ -44,9 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
@@ -90,13 +88,13 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
 
     List<KeyArgs> deleteKeyArgsList = deleteKeyRequest.getKeyArgsList();
     IOException exception = null;
-    boolean acquiredLock = false;
     OMClientResponse omClientResponse = null;
     Result result = null;
 
     OMMetrics omMetrics = ozoneManager.getMetrics();
     omMetrics.incNumKeyDeletes();
     List<OmKeyInfo> omKeyInfoList = new ArrayList<>();
+    Set<String> acquiredLockSet = new HashSet<>();
     Map<String, String> auditMap = null;
     String volumeName = "";
     String bucketName = "";
@@ -111,6 +109,17 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
     try {
       for (KeyArgs deleteKeyArgs : deleteKeyArgsList) {
+        acquiredLockSet.add(deleteKeyArgs.getVolumeName() + "_" +
+            deleteKeyArgs.getBucketName());
+      }
+
+      for (String volumeAndVolume : acquiredLockSet) {
+        omMetadataManager.getLock().acquireWriteLock(
+            BUCKET_LOCK, volumeAndVolume.split("_")[0],
+            volumeAndVolume.split("_")[1]);
+      }
+
+      for (KeyArgs deleteKeyArgs : deleteKeyArgsList) {
         volumeName = deleteKeyArgs.getVolumeName();
         bucketName = deleteKeyArgs.getBucketName();
         keyName = deleteKeyArgs.getKeyName();
@@ -122,9 +131,6 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
 
         String objectKey = omMetadataManager.getOzoneKey(
             volumeName, bucketName, keyName);
-
-        acquiredLock = omMetadataManager.getLock().acquireWriteLock(
-            BUCKET_LOCK, volumeName, bucketName);
 
         // Validate bucket and volume exists or not.
         validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
@@ -150,10 +156,7 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
             new CacheKey<>(omMetadataManager.getOzoneKey(
                 volumeName, bucketName, keyName)),
             new CacheValue<>(Optional.absent(), trxnLogIndex));
-        if (acquiredLock) {
-          omMetadataManager.getLock().releaseWriteLock(
-              BUCKET_LOCK, volumeName, bucketName);
-        }
+
         // No need to add cache entries to delete table. As delete table will
         // be used by DeleteKeyService only, not used for any client response
         // validation, so we don't need to add to cache.
@@ -161,15 +164,9 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
 
         omKeyInfoList.add(omKeyInfo);
       }
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(
-          BUCKET_LOCK, volumeName, bucketName);
       omClientResponse = new OMBatchKeyDeleteResponse(omResponse
           .setDeleteKeyResponse(DeleteKeyResponse.newBuilder()).build(),
           omKeyInfoList, ozoneManager.isRatisEnabled());
-      if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(
-            BUCKET_LOCK, volumeName, bucketName);
-      }
       result = Result.SUCCESS;
     } catch (IOException ex) {
       if (ex instanceof OMReplayException) {
@@ -182,13 +179,20 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
         omClientResponse = new OMKeyDeleteResponse(createErrorOMResponse(
             omResponse, exception));
       }
+
     } finally {
+      for (String volumeAndVolume : acquiredLockSet) {
+        try {
+          omMetadataManager.getLock().releaseWriteLock(
+              BUCKET_LOCK, volumeAndVolume.split("_")[0],
+              volumeAndVolume.split("_")[1]);
+        } catch (Exception ex) {
+          LOG.error("Release write lock ERROR. Volume:{}, Bucket:{}." +
+              " Exception:{}", volumeName, bucketName, ex);
+        }
+      }
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(
-            BUCKET_LOCK, volumeName, bucketName);
-      }
     }
 
     // Performing audit logging outside of the lock.
