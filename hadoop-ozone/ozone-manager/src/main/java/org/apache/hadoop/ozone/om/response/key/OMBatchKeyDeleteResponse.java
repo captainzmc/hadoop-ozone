@@ -33,6 +33,8 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+
 /**
  * Response for DeleteKey request.
  */
@@ -70,26 +72,50 @@ public class OMBatchKeyDeleteResponse extends OMClientResponse {
                 omKeyInfo.getBucketName(), omKeyInfo.getKeyName());
         omMetadataManager.getKeyTable().deleteWithBatch(batchOperation,
             ozoneKey);
-
-        // If Key is not empty add this to delete table.
-        if (!isKeyEmpty(omKeyInfo)) {
-          // If a deleted key is put in the table where a key with the same
-          // name already exists, then the old deleted key information would be
-          // lost. To avoid this, first check if a key with same name exists.
-          // deletedTable in OM Metadata stores <KeyName, RepeatedOMKeyInfo>.
-          // The RepeatedOmKeyInfo is the structure that allows us to store a
-          // list of OmKeyInfo that can be tied to same key name. For a keyName
-          // if RepeatedOMKeyInfo structure is null, we create a new instance,
-          // if it is not null, then we simply add to the list and store this
-          // instance in deletedTable.
-          RepeatedOmKeyInfo repeatedOmKeyInfo =
-              omMetadataManager.getDeletedTable().get(ozoneKey);
-          repeatedOmKeyInfo = OmUtils.prepareKeyForDelete(
-              omKeyInfo, repeatedOmKeyInfo, omKeyInfo.getUpdateID(),
-              isRatisEnabled);
-          omMetadataManager.getDeletedTable().putWithBatch(batchOperation,
-              ozoneKey, repeatedOmKeyInfo);
+        boolean acquiredLock = false;
+        String volumeName = "";
+        String bucketName = "";
+        try {
+          // If Key is not empty add this to delete table.
+          if (!isKeyEmpty(omKeyInfo)) {
+            volumeName = omKeyInfo.getVolumeName();
+            bucketName = omKeyInfo.getBucketName();
+            acquiredLock =
+                omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+                    volumeName, bucketName);
+            // If a deleted key is put in the table where a key with the same
+            // name already exists, then the old deleted key information would be
+            // lost. To avoid this, first check if a key with same name exists.
+            // deletedTable in OM Metadata stores <KeyName, RepeatedOMKeyInfo>.
+            // The RepeatedOmKeyInfo is the structure that allows us to store a
+            // list of OmKeyInfo that can be tied to same key name. For a keyName
+            // if RepeatedOMKeyInfo structure is null, we create a new instance,
+            // if it is not null, then we simply add to the list and store this
+            // instance in deletedTable.
+            RepeatedOmKeyInfo repeatedOmKeyInfo =
+                omMetadataManager.getDeletedTable().get(ozoneKey);
+            repeatedOmKeyInfo = OmUtils.prepareKeyForDelete(
+                omKeyInfo, repeatedOmKeyInfo, omKeyInfo.getUpdateID(),
+                isRatisEnabled);
+            omMetadataManager.getDeletedTable().putWithBatch(batchOperation,
+                ozoneKey, repeatedOmKeyInfo);
+            if (acquiredLock) {
+              omMetadataManager.getLock()
+                  .releaseWriteLock(BUCKET_LOCK, volumeName,
+                      bucketName);
+              acquiredLock = false;
+            }
+          }
+        } catch (IOException ex) {
+          throw new IOException(ex);
+        } finally {
+          if (acquiredLock) {
+            omMetadataManager.getLock()
+                .releaseWriteLock(BUCKET_LOCK, volumeName,
+                    bucketName);
+          }
         }
+
       }
     }
   }

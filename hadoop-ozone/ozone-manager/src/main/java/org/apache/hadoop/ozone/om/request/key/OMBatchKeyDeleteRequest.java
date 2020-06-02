@@ -88,6 +88,7 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
 
     List<KeyArgs> deleteKeyArgsList = deleteKeyRequest.getKeyArgsList();
     IOException exception = null;
+    boolean acquiredLock = false;
     OMClientResponse omClientResponse = null;
     Result result = null;
 
@@ -107,18 +108,8 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
     OMResponse.Builder omResponse = OmResponseUtil.getOMResponseBuilder(
         getOmRequest());
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
+
     try {
-      for (KeyArgs deleteKeyArgs : deleteKeyArgsList) {
-        acquiredLockSet.add(deleteKeyArgs.getVolumeName() + "_" +
-            deleteKeyArgs.getBucketName());
-      }
-
-      for (String volumeAndVolume : acquiredLockSet) {
-        omMetadataManager.getLock().acquireWriteLock(
-            BUCKET_LOCK, volumeAndVolume.split("_")[0],
-            volumeAndVolume.split("_")[1]);
-      }
-
       for (KeyArgs deleteKeyArgs : deleteKeyArgsList) {
         volumeName = deleteKeyArgs.getVolumeName();
         bucketName = deleteKeyArgs.getBucketName();
@@ -132,6 +123,8 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
         String objectKey = omMetadataManager.getOzoneKey(
             volumeName, bucketName, keyName);
 
+        acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+            volumeName, bucketName);
         // Validate bucket and volume exists or not.
         validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
@@ -162,6 +155,11 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
         // validation, so we don't need to add to cache.
         // TODO: Revisit if we need it later.
 
+        if (acquiredLock) {
+          omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+              bucketName);
+          acquiredLock = false;
+        }
         omKeyInfoList.add(omKeyInfo);
       }
       omClientResponse = new OMBatchKeyDeleteResponse(omResponse
@@ -181,15 +179,11 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
       }
 
     } finally {
-      for (String volumeAndVolume : acquiredLockSet) {
-        try {
-          omMetadataManager.getLock().releaseWriteLock(
-              BUCKET_LOCK, volumeAndVolume.split("_")[0],
-              volumeAndVolume.split("_")[1]);
-        } catch (Exception ex) {
-          LOG.error("Release write lock ERROR. Volume:{}, Bucket:{}." +
-              " Exception:{}", volumeName, bucketName, ex);
-        }
+      // If an exception occurs, the lock above maybe not released, make
+      // sure that the previous lock is eventually released.
+      if (acquiredLock) {
+        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+            bucketName);
       }
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
