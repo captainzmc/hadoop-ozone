@@ -36,7 +36,16 @@ import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.key.OMKeyDeleteResponse;
 import org.apache.hadoop.ozone.om.response.key.OMBatchKeyDeleteResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.*;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .DeleteBatchKeyRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .DeleteBatchKeyResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .KeyArgs;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.util.Time;
@@ -95,7 +104,6 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
     OMMetrics omMetrics = ozoneManager.getMetrics();
     omMetrics.incNumKeyDeletes();
     List<OmKeyInfo> omKeyInfoList = new ArrayList<>();
-    Set<String> acquiredLockSet = new HashSet<>();
     Map<String, String> auditMap = null;
     String volumeName = "";
     String bucketName = "";
@@ -163,7 +171,8 @@ public class OMBatchKeyDeleteRequest extends OMKeyRequest {
         omKeyInfoList.add(omKeyInfo);
       }
       omClientResponse = new OMBatchKeyDeleteResponse(omResponse
-          .setDeleteKeyResponse(DeleteKeyResponse.newBuilder()).build(),
+          .setDeleteBatchKeyResponse(DeleteBatchKeyResponse.newBuilder())
+          .build(),
           omKeyInfoList, ozoneManager.isRatisEnabled());
       result = Result.SUCCESS;
     } catch (IOException ex) {

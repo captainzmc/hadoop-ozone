@@ -84,14 +84,14 @@ public class OMBatchKeyDeleteResponse extends OMClientResponse {
                 omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
                     volumeName, bucketName);
             // If a deleted key is put in the table where a key with the same
-            // name already exists, then the old deleted key information would be
-            // lost. To avoid this, first check if a key with same name exists.
-            // deletedTable in OM Metadata stores <KeyName, RepeatedOMKeyInfo>.
-            // The RepeatedOmKeyInfo is the structure that allows us to store a
-            // list of OmKeyInfo that can be tied to same key name. For a keyName
-            // if RepeatedOMKeyInfo structure is null, we create a new instance,
-            // if it is not null, then we simply add to the list and store this
-            // instance in deletedTable.
+            // name already exists, then the old deleted key information would
+            // be lost. To avoid this, first check if a key with same name
+            // exists. deletedTable in OM Metadata stores <KeyName,
+            // RepeatedOMKeyInfo>. The RepeatedOmKeyInfo is the structure that
+            // allows us to store a list of OmKeyInfo that can be tied to same
+            // key name. For a keyName if RepeatedOMKeyInfo structure is null,
+            // we create a new instance, if it is not null, then we simply add
+            // to the list and store this instance in deletedTable.
             RepeatedOmKeyInfo repeatedOmKeyInfo =
                 omMetadataManager.getDeletedTable().get(ozoneKey);
             repeatedOmKeyInfo = OmUtils.prepareKeyForDelete(
