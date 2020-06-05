@@ -401,10 +401,6 @@ public final class OzoneConfigKeys {
       "ozone.s3.token.max.lifetime";
   public static final String OZONE_S3_AUTHINFO_MAX_LIFETIME_KEY_DEFAULT = "3m";
 
-  //For technical reasons this is unused and hardcoded to the
-  // OzoneFileSystem.initialize.
-  public static final String OZONE_FS_ISOLATED_CLASSLOADER =
-      "ozone.fs.isolated-classloader";
   public static final String OZONE_FS_ITERATE_BATCH_SIZE =
           "ozone.fs.iterate.batch-size";
   public static final int OZONE_FS_ITERATE_BATCH_SIZE_DEFAULT = 1;
