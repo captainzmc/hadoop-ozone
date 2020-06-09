@@ -302,8 +302,8 @@ public interface ClientProtocol {
    * @throws IOException
    */
   void deleteKeys(String volumeName, String bucketName,
-                     List<String> keyNameList)
-          throws IOException;
+                  List<String> keyNameList)
+      throws IOException;
 
   /**
    * Renames an existing key within a bucket.

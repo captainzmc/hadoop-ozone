@@ -80,7 +80,7 @@
                 "integer": 37
               },
               {
-                "name": "DeleteBatchKey",
+                "name": "DeleteKeys",
                 "integer": 38
               },
               {
@@ -708,8 +708,8 @@
               },
               {
                 "id": 38,
-                "name": "deleteBatchKeyRequest",
-                "type": "DeleteBatchKeyRequest"
+                "name": "deleteKeysRequest",
+                "type": "DeleteKeysRequest"
               },
               {
                 "id": 45,
@@ -979,8 +979,8 @@
               },
               {
                 "id": 38,
-                "name": "deleteBatchKeyResponse",
-                "type": "DeleteBatchKeyResponse"
+                "name": "deleteKeysResponse",
+                "type": "DeleteKeysResponse"
               },
               {
                 "id": 45,
@@ -2415,7 +2415,7 @@
             ]
           },
           {
-            "name": "DeleteBatchKeyRequest",
+            "name": "DeleteKeysRequest",
             "fields": [
               {
                 "id": 1,
@@ -2446,7 +2446,7 @@
             ]
           },
           {
-            "name": "DeleteBatchKeyResponse",
+            "name": "DeleteKeysResponse",
             "fields": [
               {
                 "id": 2,

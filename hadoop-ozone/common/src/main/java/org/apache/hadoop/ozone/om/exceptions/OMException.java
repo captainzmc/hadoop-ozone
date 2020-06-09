@@ -223,6 +223,8 @@ public class OMException extends IOException {
 
     INVALID_VOLUME_NAME,
 
+    DELETE_KEYS_ERROR,
+
     REPLAY // When ratis logs are replayed.
   }
 }

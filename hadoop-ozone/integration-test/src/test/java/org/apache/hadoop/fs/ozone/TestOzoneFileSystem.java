@@ -25,13 +25,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeoutException;
 
-import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.contract.ContractTestUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
@@ -279,19 +273,11 @@ public class TestOzoneFileSystem {
       ContractTestUtils.touch(fs, childFile);
       ContractTestUtils.touch(fs, childFolderFile);
     }
-
+    assertTrue(fs.listStatus(grandparent).length == 1);
+    assertTrue(fs.listStatus(parent).length == 9);
+    assertTrue(fs.listStatus(childFolder).length == 8);
     fs.delete(grandparent, true);
-    assertTrue(!o3fs.exists(grandparent));
-    for (int i = 0; i < 8; i++) {
-      Path childFile = new Path(parent, "child" + i);
-      // Make sure all keys under testBatchDelete/parent should be deleted
-      assertTrue(!o3fs.exists(childFile));
-
-      // Test to recursively delete child folder, make sure all keys under
-      // testBatchDelete/parent/childFolder should be deleted.
-      Path childFolderFile = new Path(childFolder, "child" + i);
-      assertTrue(!o3fs.exists(childFolderFile));
-    }
+    assertTrue(fs.listStatus(grandparent).length == 0);
   }
 
   private void testListStatus() throws Exception {
