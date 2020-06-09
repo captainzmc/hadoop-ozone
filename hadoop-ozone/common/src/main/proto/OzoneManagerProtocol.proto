@@ -59,7 +59,7 @@ enum Type {
   ListKeys = 35;
   CommitKey = 36;
   AllocateBlock = 37;
-  DeleteBatchKey = 38;
+  DeleteKeys = 38;
 
   InitiateMultiPartUpload = 45;
   CommitMultiPartUpload = 46;
@@ -125,7 +125,7 @@ message OMRequest {
   optional ListKeysRequest                  listKeysRequest                = 35;
   optional CommitKeyRequest                 commitKeyRequest               = 36;
   optional AllocateBlockRequest             allocateBlockRequest           = 37;
-  optional DeleteBatchKeyRequest            deleteBatchKeyRequest          = 38;
+  optional DeleteKeysRequest                deleteKeysRequest              = 38;
 
   optional MultipartInfoInitiateRequest     initiateMultiPartUploadRequest = 45;
   optional MultipartCommitUploadPartRequest commitMultiPartUploadRequest   = 46;
@@ -197,7 +197,6 @@ message OMResponse {
   optional ListKeysResponse                  listKeysResponse              = 35;
   optional CommitKeyResponse                 commitKeyResponse             = 36;
   optional AllocateBlockResponse             allocateBlockResponse         = 37;
-  optional DeleteBatchKeyResponse            deleteBatchKeyResponse        = 38;
 
   optional MultipartInfoInitiateResponse   initiateMultiPartUploadResponse = 45;
   optional MultipartCommitUploadPartResponse commitMultiPartUploadResponse = 46;
@@ -844,21 +843,13 @@ message DeleteKeyRequest {
     required KeyArgs keyArgs = 1;
 }
 
-message DeleteBatchKeyRequest {
+message DeleteKeysRequest {
     repeated KeyArgs keyArgs = 1;
 }
 
 message DeleteKeyResponse {
 
     optional KeyInfo keyInfo = 2;
-    // clients' followup request may carry this ID for stateful operations
-    // (similar to a cookie).
-    optional uint64 ID = 3;
-    optional uint64 openVersion = 4;
-}
-
-message DeleteBatchKeyResponse {
-    repeated KeyInfo keyInfo = 2;
     // clients' followup request may carry this ID for stateful operations
     // (similar to a cookie).
     optional uint64 ID = 3;

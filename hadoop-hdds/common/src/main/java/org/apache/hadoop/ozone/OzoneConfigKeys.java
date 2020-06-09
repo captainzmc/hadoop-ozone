@@ -402,8 +402,8 @@ public final class OzoneConfigKeys {
   public static final String OZONE_S3_AUTHINFO_MAX_LIFETIME_KEY_DEFAULT = "3m";
 
   public static final String OZONE_FS_ITERATE_BATCH_SIZE =
-          "ozone.fs.iterate.batch-size";
-  public static final int OZONE_FS_ITERATE_BATCH_SIZE_DEFAULT = 1;
+      "ozone.fs.iterate.batch-size";
+  public static final int OZONE_FS_ITERATE_BATCH_SIZE_DEFAULT = 100;
 
   // Ozone Client Retry and Failover configurations
   public static final String OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY =

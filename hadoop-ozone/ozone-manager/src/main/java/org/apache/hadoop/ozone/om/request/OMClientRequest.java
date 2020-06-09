@@ -221,6 +221,27 @@ public abstract class OMClientRequest implements RequestAuditor {
   }
 
   /**
+   * Set parameters needed for return error response to client.
+   *
+   * @param omResponse
+   * @param ex         - IOException
+   * @param keysMsg    - IOException
+   * @return error response need to be returned to client - OMResponse.
+   */
+  protected OMResponse createOperationKeysErrorOMResponse(
+      @Nonnull OMResponse.Builder omResponse,
+      @Nonnull IOException ex, @Nonnull String keysMsg) {
+
+    omResponse.setSuccess(false);
+    String errorMsg = exceptionErrorMessage(ex) + "\n" + keysMsg;
+    if (errorMsg != null) {
+      omResponse.setMessage(errorMsg);
+    }
+    omResponse.setStatus(OzoneManagerRatisUtils.exceptionToResponseStatus(ex));
+    return omResponse.build();
+  }
+
+  /**
    * Add the client response to double buffer and set the flush future.
    * For responses which has status set to REPLAY it is a no-op.
    * @param trxIndex
