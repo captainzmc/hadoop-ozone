@@ -59,6 +59,7 @@ enum Type {
   ListKeys = 35;
   CommitKey = 36;
   AllocateBlock = 37;
+  RenameKeys = 39;
 
   InitiateMultiPartUpload = 45;
   CommitMultiPartUpload = 46;
@@ -124,6 +125,7 @@ message OMRequest {
   optional ListKeysRequest                  listKeysRequest                = 35;
   optional CommitKeyRequest                 commitKeyRequest               = 36;
   optional AllocateBlockRequest             allocateBlockRequest           = 37;
+  optional RenameKeysRequest                renameKeysRequest              = 39;
 
   optional MultipartInfoInitiateRequest     initiateMultiPartUploadRequest = 45;
   optional MultipartCommitUploadPartRequest commitMultiPartUploadRequest   = 46;
@@ -195,6 +197,7 @@ message OMResponse {
   optional ListKeysResponse                  listKeysResponse              = 35;
   optional CommitKeyResponse                 commitKeyResponse             = 36;
   optional AllocateBlockResponse             allocateBlockResponse         = 37;
+  optional RenameKeysResponse                renameKeysResponse            = 39;
 
   optional MultipartInfoInitiateResponse   initiateMultiPartUploadResponse = 45;
   optional MultipartCommitUploadPartResponse commitMultiPartUploadResponse = 46;
@@ -831,6 +834,14 @@ message LookupKeyResponse {
 message RenameKeyRequest{
     required KeyArgs keyArgs = 1;
     required string toKeyName = 2;
+}
+
+message RenameKeysRequest{
+    repeated RenameKeyRequest renameKeyRequest = 1;
+}
+
+message RenameKeysResponse{
+
 }
 
 message RenameKeyResponse{

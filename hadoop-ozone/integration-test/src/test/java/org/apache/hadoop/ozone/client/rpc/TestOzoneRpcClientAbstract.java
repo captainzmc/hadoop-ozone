@@ -107,6 +107,7 @@ import static org.apache.hadoop.hdds.client.ReplicationFactor.ONE;
 import static org.apache.hadoop.hdds.client.ReplicationType.STAND_ALONE;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.DEFAULT;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.GROUP;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.USER;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.READ;
@@ -1187,7 +1188,7 @@ public abstract class TestOzoneRpcClientAbstract {
     Assert.assertEquals(keyName, key.getName());
     bucket.deleteKey(keyName);
 
-    OzoneTestUtils.expectOmException(ResultCodes.KEY_NOT_FOUND,
+    OzoneTestUtils.expectOmException(KEY_NOT_FOUND,
         () -> bucket.getKey(keyName));
   }
 
@@ -1229,10 +1230,64 @@ public abstract class TestOzoneRpcClientAbstract {
     } catch (OMException e) {
       oe = e;
     }
-    Assert.assertEquals(ResultCodes.KEY_NOT_FOUND, oe.getResult());
+    Assert.assertEquals(KEY_NOT_FOUND, oe.getResult());
 
     key = bucket.getKey(toKeyName);
     Assert.assertEquals(toKeyName, key.getName());
+  }
+
+  @Test
+  public void testKeysRename() throws Exception {
+    String volumeName = UUID.randomUUID().toString();
+    String bucketName = UUID.randomUUID().toString();
+    String keyName1 = "dir/file1";
+    String keyName2 = "dir/file2";
+
+    String newKeyName1 = "dir/key1";
+    String newKeyName2 = "dir/key2";
+
+    String value = "sample value";
+    store.createVolume(volumeName);
+    OzoneVolume volume = store.getVolume(volumeName);
+    volume.createBucket(bucketName);
+    OzoneBucket bucket = volume.getBucket(bucketName);
+    OzoneOutputStream out1 = bucket.createKey(keyName1,
+        value.getBytes().length, STAND_ALONE,
+        ONE, new HashMap<>());
+    out1.write(value.getBytes());
+    out1.close();
+    OzoneOutputStream out2 = bucket.createKey(keyName2,
+        value.getBytes().length, STAND_ALONE,
+        ONE, new HashMap<>());
+    out2.write(value.getBytes());
+    out2.close();
+    OzoneKey key1 = bucket.getKey(keyName1);
+    OzoneKey key2 = bucket.getKey(keyName2);
+    Assert.assertEquals(keyName1, key1.getName());
+    Assert.assertEquals(keyName2, key2.getName());
+
+    Map<String, String> keyMap = new HashMap();
+    keyMap.put(keyName1, newKeyName1);
+    keyMap.put(keyName2, newKeyName2);
+    keyMap.put(keyName3, newKeyName3);
+    bucket.renameKeys(keyMap);
+
+//    OzoneKey newKey1 = bucket.getKey(newKeyName1);
+//    OzoneKey newKey2 = bucket.getKey(newKeyName2);
+//    Assert.assertEquals(newKeyName1, newKey1.getName());
+//    Assert.assertEquals(newKeyName2, newKey2.getName());
+//
+//    try {
+//      bucket.getKey(keyName1);
+//    } catch (OMException ex) {
+//      Assert.assertEquals(KEY_NOT_FOUND, ex.getResult());
+//    }
+//    try {
+//      bucket.getKey(keyName2);
+//    } catch (OMException ex) {
+//      Assert.assertEquals(KEY_NOT_FOUND, ex.getResult());
+//    }
+
   }
 
   // Listing all volumes in the cluster feature has to be fixed after HDDS-357.

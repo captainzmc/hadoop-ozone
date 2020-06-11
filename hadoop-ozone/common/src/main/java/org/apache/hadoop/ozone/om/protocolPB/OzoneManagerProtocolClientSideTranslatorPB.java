@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
@@ -119,6 +120,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Recover
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RemoveAclRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RemoveAclResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeyRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeysRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenewDelegationTokenResponseProto;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ServiceListRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ServiceListResponse;
@@ -140,6 +142,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
+import org.apache.hadoop.util.Time;
+
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.TOKEN_ERROR_OTHER;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.ACCESS_DENIED;
@@ -669,6 +673,32 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         handleError(submitRequest(omRequest)).getLookupKeyResponse();
 
     return OmKeyInfo.getFromProtobuf(resp.getKeyInfo());
+  }
+
+  @Override
+  public void renameKeys(Map<String, OmKeyArgs> keyMap) throws IOException {
+    RenameKeysRequest.Builder reqKeys = RenameKeysRequest.newBuilder();
+    List<RenameKeyRequest> renameKeyRequestList  = new ArrayList<>();
+    for (String toKeyName : keyMap.keySet()) {
+      RenameKeyRequest.Builder reqKey = RenameKeyRequest.newBuilder();
+      OmKeyArgs args = keyMap.get(toKeyName);
+      KeyArgs keyArgs = KeyArgs.newBuilder()
+          .setVolumeName(args.getVolumeName())
+          .setBucketName(args.getBucketName())
+          .setKeyName(args.getKeyName())
+          .setModificationTime(Time.now())
+          .setDataSize(args.getDataSize()).build();
+      reqKey.setKeyArgs(keyArgs);
+      reqKey.setToKeyName(toKeyName);
+      renameKeyRequestList.add(reqKey.build());
+    }
+    reqKeys.addAllRenameKeyRequest(renameKeyRequestList);
+
+    OMRequest omRequest = createOMRequest(Type.RenameKeys)
+        .setRenameKeysRequest(reqKeys)
+        .build();
+
+    handleError(submitRequest(omRequest));
   }
 
   @Override
