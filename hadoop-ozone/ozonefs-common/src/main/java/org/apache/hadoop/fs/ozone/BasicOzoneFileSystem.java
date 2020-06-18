@@ -741,6 +741,8 @@ public class BasicOzoneFileSystem extends FileSystem {
     boolean iterate() throws IOException {
       LOG.trace("Iterating path {}", path);
       List<String> keyList = new ArrayList<>();
+      int batchSize = getConf().getInt(OZONE_FS_ITERATE_BATCH_SIZE,
+          OZONE_FS_ITERATE_BATCH_SIZE_DEFAULT);
       if (status.isDirectory()) {
         LOG.trace("Iterating directory:{}", pathKey);
         while (keyIterator.hasNext()) {
@@ -749,8 +751,6 @@ public class BasicOzoneFileSystem extends FileSystem {
           if (!key.getName().equals("")) {
             keyList.add(key.getName());
           }
-          int batchSize = getConf().getInt(OZONE_FS_ITERATE_BATCH_SIZE,
-              OZONE_FS_ITERATE_BATCH_SIZE_DEFAULT);
           if (keyList.size() >= batchSize) {
             if (!processKey(keyList)) {
               return false;

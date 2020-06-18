@@ -1960,7 +1960,7 @@
   
   <property>
     <name>ozone.fs.iterate.batch-size</name>
-    <value>1</value>
+    <value>100</value>
     <tag>OZONE, OZONEFS</tag>
     <description>
       Iterate batch size of delete when use BasicOzoneFileSystem.
