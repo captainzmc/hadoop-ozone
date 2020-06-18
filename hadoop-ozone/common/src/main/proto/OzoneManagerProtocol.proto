@@ -197,6 +197,8 @@ message OMResponse {
   optional ListKeysResponse                  listKeysResponse              = 35;
   optional CommitKeyResponse                 commitKeyResponse             = 36;
   optional AllocateBlockResponse             allocateBlockResponse         = 37;
+  optional UnDeletedKeysResponse             unDeletedKeysResponse         = 38;
+  optional DeleteKeysResponse                deleteKeysResponse            = 39;
 
   optional MultipartInfoInitiateResponse   initiateMultiPartUploadResponse = 45;
   optional MultipartCommitUploadPartResponse commitMultiPartUploadResponse = 46;
@@ -862,6 +864,14 @@ message DeletedKeys {
     repeated string keys = 3;
 }
 
+message DeleteKeysResponse {
+    repeated KeyInfo keyInfo = 2;
+    // clients' followup request may carry this ID for stateful operations
+    // (similar to a cookie).
+    optional uint64 ID = 3;
+    optional uint64 openVersion = 4;
+}
+
 message PurgeKeysRequest {
     repeated DeletedKeys deletedKeys = 1;
 }
@@ -909,6 +919,10 @@ message ListKeysRequest {
 
 message ListKeysResponse {
     repeated KeyInfo keyInfo = 2;
+}
+
+message UnDeletedKeysResponse {
+    repeated KeyInfo keyInfo = 1;
 }
 
 message CommitKeyRequest {

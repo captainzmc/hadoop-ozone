@@ -152,7 +152,7 @@ public class TestOzoneManagerHAWithData extends TestOzoneManagerHA {
   }
 
   @Test
-  public void testFilesDelete() throws Exception {
+  public void testKeysDelete() throws Exception {
     OzoneBucket ozoneBucket = setupBucket();
     String data = "random data";
     String keyName1 = "dir/file1";
@@ -172,21 +172,24 @@ public class TestOzoneManagerHAWithData extends TestOzoneManagerHA {
     // Delete keyName1 use deleteKey api.
     ozoneBucket.deleteKey(keyName1);
 
-    // Delete keyName2 and keyName3 in keyList1 using the batchDelete api.
+    // Delete keyName2 and keyName3 in keyList1 using the deleteKeys api.
     ozoneBucket.deleteKeys(keyList1);
 
     // In keyList2 keyName3 was previously deleted and KeyName4 exists .
     List<String> keyList2 = new ArrayList<>();
-    keyList2.add(keyName4);
     keyList2.add(keyName3);
+    keyList2.add(keyName4);
 
     // Because keyName3 has been deleted, there should be a KEY_NOT_FOUND
-    // exception.
+    // exception. In this case, we test for deletion failure.
     try {
       ozoneBucket.deleteKeys(keyList2);
       fail("testFilesDelete");
     } catch (OMException ex) {
+      // The expected exception KEY_NOT_FOUND.
       Assert.assertEquals(KEY_NOT_FOUND, ex.getResult());
+      // Keys that are not deleted are included in the ERROR Message.
+      Assert.assertTrue(ex.getMessage().contains("dir/file4"));
     }
   }
 

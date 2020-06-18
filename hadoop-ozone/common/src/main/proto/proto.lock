@@ -978,6 +978,16 @@
                 "type": "AllocateBlockResponse"
               },
               {
+                "id": 38,
+                "name": "unDeletedKeysResponse",
+                "type": "UnDeletedKeysResponse"
+              },
+              {
+                "id": 39,
+                "name": "deleteKeysResponse",
+                "type": "DeleteKeysResponse"
+              },
+              {
                 "id": 45,
                 "name": "initiateMultiPartUploadResponse",
                 "type": "MultipartInfoInitiateResponse"
@@ -2462,6 +2472,27 @@
             ]
           },
           {
+            "name": "DeleteKeysResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "keyInfo",
+                "type": "KeyInfo",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "ID",
+                "type": "uint64"
+              },
+              {
+                "id": 4,
+                "name": "openVersion",
+                "type": "uint64"
+              }
+            ]
+          },
+          {
             "name": "PurgeKeysRequest",
             "fields": [
               {
@@ -2615,6 +2646,17 @@
             "fields": [
               {
                 "id": 2,
+                "name": "keyInfo",
+                "type": "KeyInfo",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "UnDeletedKeysResponse",
+            "fields": [
+              {
+                "id": 1,
                 "name": "keyInfo",
                 "type": "KeyInfo",
                 "is_repeated": true
