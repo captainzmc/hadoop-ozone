@@ -2167,6 +2167,15 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     }
   }
 
+
+  @Override
+  public void renameKeys(Map<String, OmKeyArgs> omKeyArgsMap)
+      throws IOException {
+    for (Map.Entry< String, OmKeyArgs > entry : omKeyArgsMap.entrySet()) {
+      renameKey(entry.getValue(), entry.getKey());
+    }
+  }
+
   @Override
   public void renameKey(OmKeyArgs args, String toKeyName) throws IOException {
     if (isAclEnabled) {
