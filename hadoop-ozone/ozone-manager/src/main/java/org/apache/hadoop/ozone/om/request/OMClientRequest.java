@@ -45,6 +45,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
     .DeleteKeysResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .RenameKeysResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
     .OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
     .OMResponse;
@@ -250,6 +252,36 @@ public abstract class OMClientRequest implements RequestAuditor {
     //  we put the List of unDeletedKeys into Response. These KeyInfo can be
     //  used to continue deletion if client support delete retry.
     omResponse.setDeleteKeysResponse(resp.build());
+    omResponse.setStatus(OzoneManagerRatisUtils.exceptionToResponseStatus(ex));
+    return omResponse.build();
+  }
+
+  /**
+   * Set parameters needed for return error response to client.
+   *
+   * @param omResponse
+   * @param ex         - IOException
+   * @param unDeletedKeys    - Set<OmKeyInfo>
+   * @return error response need to be returned to client - OMResponse.
+   */
+  protected OMResponse createRenameKeysErrorOMResponse(
+      @Nonnull OMResponse.Builder omResponse,
+      @Nonnull IOException ex, @Nonnull Set<OmKeyInfo> unDeletedKeys) {
+    omResponse.setSuccess(false);
+    StringBuffer errorMsg = new StringBuffer();
+    RenameKeysResponse.Builder resp = RenameKeysResponse.newBuilder();
+    for (OmKeyInfo key : unDeletedKeys) {
+      if(key != null) {
+        resp.addUnRenamedKeys(key.getProtobuf());
+      }
+    }
+    if (errorMsg != null) {
+      omResponse.setMessage(errorMsg.toString());
+    }
+    // TODO: Currently all delete operations in OzoneBucket.java are void. Here
+    //  we put the List of unDeletedKeys into Response. These KeyInfo can be
+    //  used to continue deletion if client support delete retry.
+    omResponse.setRenameKeysResponse(resp.build());
     omResponse.setStatus(OzoneManagerRatisUtils.exceptionToResponseStatus(ex));
     return omResponse.build();
   }
