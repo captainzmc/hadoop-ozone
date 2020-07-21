@@ -37,12 +37,13 @@ assign it to a user.
 
 | Arguments                      |  Comment                                |
 |--------------------------------|-----------------------------------------|
-| -q, \-\-quota                    | Optional, This argument that specifies the maximum size this volume can use in the Ozone cluster.                    |
-| -u, \-\-user                     |  Required, The name of the user who owns this volume. This user can create, buckets and keys on this volume.                                       |
+| -sq, \-\-spaceQuota             | Optional, This argument that specifies the maximum size this volume can use in the Ozone cluster.                                        |
+| -q, \-\-quota                  | Optional, This argument that specifies the number of bucket in this volume can use in the Ozone cluster.                                        |
+| -u, \-\-user                   | Required, The name of the user who owns this volume. This user can create, buckets and keys on this volume.                                       |
 |  Uri                           | The name of the volume.                                        |
 
 {{< highlight bash >}}
-ozone sh volume create --spaceQuota=1TB --user=bilbo /hive
+ozone sh volume create --spaceQuota=1TB --quota=100 --user=bilbo /hive
 {{< /highlight >}}
 
 The above command will create a volume called _hive_ on the ozone cluster. This
@@ -103,12 +104,13 @@ The volume update command allows changing of owner and quota on a given volume.
 
 | Arguments                      |  Comment                                |
 |--------------------------------|-----------------------------------------|
-| -q, \-\-quota                    | Optional, This argument that specifies the maximum size this volume can use in the Ozone cluster.                    |
-| -u, \-\-user                     |  Optional, The name of the user who owns this volume. This user can create, buckets and keys on this volume.                                       |
+| -sq, \-\-spaceQuota             | Optional, This argument that specifies the maximum size this volume can use in the Ozone cluster.                                        |
+| -q, \-\-quota                  | Optional, This argument that specifies the number of bucket in this volume can use in the Ozone cluster.                                        |
+| -u, \-\-user                   | Optional, The name of the user who owns this volume. This user can create, buckets and keys on this volume.                                       |
 |  Uri                           | The name of the volume.                                        |
 
 {{< highlight bash >}}
-ozone sh volume update --spaceQuota=10TB /hive
+ozone sh volume update --spaceQuota=10TB --quota=100 /hive
 {{< /highlight >}}
 
 The above command updates the volume quota to 10TB.
