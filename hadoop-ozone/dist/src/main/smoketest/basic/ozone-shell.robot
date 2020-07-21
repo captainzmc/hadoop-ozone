@@ -54,14 +54,14 @@ Test ozone shell
     [arguments]     ${protocol}         ${server}       ${volume}
     ${result} =     Execute And Ignore Error    ozone sh volume info ${protocol}${server}/${volume}
                     Should contain      ${result}       VOLUME_NOT_FOUND
-    ${result} =     Execute             ozone sh volume create ${protocol}${server}/${volume} -ssq 100TB
+    ${result} =     Execute             ozone sh volume create ${protocol}${server}/${volume} --spaceQuota 100TB
                     Should not contain  ${result}       Failed
     ${result} =     Execute             ozone sh volume list ${protocol}${server}/ | jq -r '. | select(.name=="${volume}")'
                     Should contain      ${result}       creationTime
     ${result} =     Execute             ozone sh volume list | jq -r '. | select(.name=="${volume}")'
                     Should contain      ${result}       creationTime
 # TODO: Disable updating the owner, acls should be used to give access to other user.        
-                    Execute             ozone sh volume update ${protocol}${server}/${volume} -ssq 10TB
+                    Execute             ozone sh volume update ${protocol}${server}/${volume} --spaceQuota 10TB
 #    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.volumeName=="${volume}") | .owner | .name'
 #                    Should Be Equal     ${result}       bill
     ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.name=="${volume}") | .storagespaceQuota'
