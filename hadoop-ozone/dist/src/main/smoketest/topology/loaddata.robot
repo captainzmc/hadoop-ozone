@@ -16,7 +16,6 @@
 *** Settings ***
 Documentation       Smoketest ozone cluster startup
 Library             OperatingSystem
-Library             BuiltIn
 Resource            ../commonlib.robot
 Test Timeout        5 minutes
 
@@ -25,7 +24,7 @@ Test Timeout        5 minutes
 
 *** Test Cases ***
 Create a volume, bucket and key
-    ${output} =         Execute          ozone sh volume create topvol1 --spaceQuota 100TB
+    ${output} =         Execute          ozone sh volume create topvol1 --spaceQuota 100TB --quota 100
                         Should not contain  ${output}       Failed
     ${output} =         Execute          ozone sh bucket create /topvol1/bucket1
                         Should not contain  ${output}       Failed
