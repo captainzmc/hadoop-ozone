@@ -64,9 +64,9 @@ Test ozone shell
                     Execute             ozone sh volume update ${protocol}${server}/${volume} --spaceQuota 10TB --quota 100
 #    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.volumeName=="${volume}") | .owner | .name'
 #                    Should Be Equal     ${result}       bill
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.name=="${volume}") | .storagespaceQuota'
+    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.name=="${volume}") | .quotaInBytes'
                     Should Be Equal     ${result}       10995116277760
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.name=="${volume}") | .namespaceQuota'
+    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.name=="${volume}") | .quotaInCounts'
                     Should Be Equal     ${result}       100
                     Execute             ozone sh bucket create ${protocol}${server}/${volume}/bb1
     ${result} =     Execute             ozone sh bucket info ${protocol}${server}/${volume}/bb1 | jq -r '. | select(.name=="bb1") | .storageType'
