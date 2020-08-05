@@ -22,12 +22,16 @@ import com.google.common.base.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.ResolvedBucket;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
+import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
@@ -54,6 +58,7 @@ import static org.apache.hadoop.ozone.OzoneConsts.UNDELETED_KEYS_LIST;
 import static org.apache.hadoop.ozone.OzoneConsts.VOLUME;
 import static org.apache.hadoop.ozone.audit.OMAction.DELETE_KEYS;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.PARTIAL_DELETE;
 
@@ -103,6 +108,7 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
 
     boolean acquiredLock = false;
+    OmVolumeArgs omVolumeArgs = null;
 
     int indexFailed = 0;
     int length = deleteKeys.size();
@@ -118,8 +124,18 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
       volumeName = bucket.realVolume();
       bucketName = bucket.realBucket();
 
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
+
+      // If Ozone Volume space quota is not enabled, bucket locks are added by
+      // default. Mitigate the impact on performance.
+      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        acquiredLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
+            volumeName);
+      } else {
+        acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+            volumeName, bucketName);
+      }
+
       // Validate bucket and volume exists or not.
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
@@ -151,21 +167,36 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
         }
       }
 
+      long totalKeySize = 0;
+
       // Mark all keys which can be deleted, in cache as deleted.
       for (OmKeyInfo omKeyInfo : omKeyInfoList) {
         omMetadataManager.getKeyTable().addCacheEntry(
             new CacheKey<>(omMetadataManager.getOzoneKey(volumeName, bucketName,
                 omKeyInfo.getKeyName())),
             new CacheValue<>(Optional.absent(), trxnLogIndex));
+
+        int keyFactor = omKeyInfo.getFactor().getNumber();
+        OmKeyLocationInfoGroup keyLocationGroup =
+            omKeyInfo.getLatestVersionLocations();
+        for(OmKeyLocationInfo locationInfo: keyLocationGroup.getLocationList()){
+          totalKeySize += locationInfo.getLength() * keyFactor;
+        }
       }
+      omVolumeArgs.setQuotaUsageInBytes(omVolumeArgs.getQuotaUsageInBytes()
+          - totalKeySize);
+      // update volume quotaUsageInBytes.
+      omMetadataManager.getVolumeTable().addCacheEntry(
+          new CacheKey<>(omMetadataManager.getVolumeKey(volumeName)),
+          new CacheValue<>(Optional.of(omVolumeArgs), trxnLogIndex));
+
 
       omClientResponse = new OMKeysDeleteResponse(omResponse
           .setDeleteKeysResponse(DeleteKeysResponse.newBuilder()
               .setStatus(deleteStatus).setUnDeletedKeys(unDeletedKeys))
           .setStatus(deleteStatus ? OK : PARTIAL_DELETE)
-          .setSuccess(deleteStatus).build(),
-          omKeyInfoList, trxnLogIndex,
-          ozoneManager.isRatisEnabled());
+          .setSuccess(deleteStatus).build(), omKeyInfoList, trxnLogIndex,
+          ozoneManager.isRatisEnabled(), omVolumeArgs);
 
       result = Result.SUCCESS;
 
@@ -187,8 +218,12 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
 
     } finally {
       if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
-            bucketName);
+        if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+          omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        } else {
+          omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+              bucketName);
+        }
       }
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);

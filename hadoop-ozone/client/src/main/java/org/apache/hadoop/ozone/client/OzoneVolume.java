@@ -79,6 +79,8 @@ public class OzoneVolume extends WithMetadata {
 
   private int listCacheSize;
 
+  private long quotaUsageInBytes;
+
   /**
    * Constructs OzoneVolume instance.
    * @param conf Configuration object.
@@ -113,15 +115,51 @@ public class OzoneVolume extends WithMetadata {
   }
 
   /**
+   * Constructs OzoneVolume instance.
+   * @param conf Configuration object.
+   * @param proxy ClientProtocol proxy.
+   * @param name Name of the volume.
+   * @param admin Volume admin.
+   * @param owner Volume owner.
+   * @param quotaInBytes Volume quota in bytes.
+   * @param creationTime creation time of the volume
+   * @param acls ACLs associated with the volume.
+   * @param metadata custom key value metadata.
+   * @param quotaUsageInBytes volume quota usage in bytes.
+   */
+  @SuppressWarnings("parameternumber")
+  public OzoneVolume(ConfigurationSource conf, ClientProtocol proxy,
+      String name, String admin, String owner, long quotaInBytes,
+      long creationTime, List<OzoneAcl> acls, Map<String, String> metadata,
+      long quotaUsageInBytes) {
+    Preconditions.checkNotNull(proxy, "Client proxy is not set.");
+    this.proxy = proxy;
+    this.name = name;
+    this.admin = admin;
+    this.owner = owner;
+    this.quotaInBytes = quotaInBytes;
+    this.creationTime = Instant.ofEpochMilli(creationTime);
+    this.acls = acls;
+    this.listCacheSize = HddsClientUtils.getListCacheSize(conf);
+    this.metadata = metadata;
+    modificationTime = Instant.now();
+    if (modificationTime.isBefore(this.creationTime)) {
+      modificationTime = Instant.ofEpochSecond(
+          this.creationTime.getEpochSecond(), this.creationTime.getNano());
+    }
+    this.quotaUsageInBytes = quotaUsageInBytes;
+  }
+
+  /**
    * @param modificationTime modification time of the volume.
    */
   @SuppressWarnings("parameternumber")
   public OzoneVolume(ConfigurationSource conf, ClientProtocol proxy,
       String name, String admin, String owner, long quotaInBytes,
       long creationTime, long modificationTime, List<OzoneAcl> acls,
-      Map<String, String> metadata) {
+      Map<String, String> metadata, long quotaUsageInBytes) {
     this(conf, proxy, name, admin, owner, quotaInBytes,
-        creationTime, acls, metadata);
+        creationTime, acls, metadata, quotaUsageInBytes);
     this.modificationTime = Instant.ofEpochMilli(modificationTime);
   }
 
@@ -233,6 +271,10 @@ public class OzoneVolume extends WithMetadata {
    */
   public List<OzoneAcl> getAcls() {
     return acls;
+  }
+
+  public long getQuotaUsageInBytes() {
+    return quotaUsageInBytes;
   }
 
   /**

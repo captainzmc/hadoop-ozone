@@ -41,6 +41,7 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmPrefixInfo;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.OzoneAclUtil;
 import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
@@ -529,5 +530,25 @@ public abstract class OMKeyRequest extends OMClientRequest {
       encryptionInfo = OMPBHelper.convert(keyArgs.getFileEncryptionInfo());
     }
     return encryptionInfo;
+  }
+
+  /**
+   * Return volume info for the specified volume.
+   * @param omMetadataManager
+   * @param volume
+   * @return OmVolumeArgs
+   * @throws IOException
+   */
+  protected OmVolumeArgs getVolumeInfo(OMMetadataManager omMetadataManager,
+                                       String volume) throws IOException {
+
+    String dbVolumeKey = omMetadataManager.getVolumeKey(volume);
+    OmVolumeArgs volumeArgs =
+        omMetadataManager.getVolumeTable().get(dbVolumeKey);
+    if (volumeArgs == null) {
+      throw new OMException("Volume " + volume + " is not found",
+          OMException.ResultCodes.VOLUME_NOT_FOUND);
+    }
+    return volumeArgs;
   }
 }

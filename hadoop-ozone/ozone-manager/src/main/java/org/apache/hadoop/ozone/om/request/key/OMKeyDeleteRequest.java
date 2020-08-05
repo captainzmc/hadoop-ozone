@@ -22,6 +22,10 @@ import java.io.IOException;
 import java.util.Map;
 
 import com.google.common.base.Optional;
+import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
+import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
@@ -40,20 +44,17 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.key.OMKeyDeleteResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .DeleteKeyRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .DeleteKeyResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.DeleteKeyRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.DeleteKeyResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
  * Handles DeleteKey request.
@@ -111,6 +112,7 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
     boolean acquiredLock = false;
     OMClientResponse omClientResponse = null;
     Result result = null;
+    OmVolumeArgs omVolumeArgs = null;
     try {
       keyArgs = resolveBucketLink(ozoneManager, keyArgs, auditMap);
       volumeName = keyArgs.getVolumeName();
@@ -123,8 +125,16 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
       String objectKey = omMetadataManager.getOzoneKey(
           volumeName, bucketName, keyName);
 
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
+      // If Ozone Volume space quota is not enabled, bucket locks are added by
+      // default. Mitigate the impact on performance.
+      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        acquiredLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
+            volumeName);
+      } else {
+        acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+            volumeName, bucketName);
+      }
 
       // Validate bucket and volume exists or not.
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
@@ -143,6 +153,21 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
               keyName)),
           new CacheValue<>(Optional.absent(), trxnLogIndex));
 
+      long totalKeySize = 0;
+      int keyFactor = omKeyInfo.getFactor().getNumber();
+      OmKeyLocationInfoGroup keyLocationGroup =
+          omKeyInfo.getLatestVersionLocations();
+      for(OmKeyLocationInfo locationInfo: keyLocationGroup.getLocationList()){
+        totalKeySize += locationInfo.getLength() * keyFactor;
+      }
+
+      omVolumeArgs.setQuotaUsageInBytes(omVolumeArgs.getQuotaUsageInBytes()
+          - totalKeySize);
+      // update volume quotaUsageInBytes.
+      omMetadataManager.getVolumeTable().addCacheEntry(
+          new CacheKey<>(omMetadataManager.getVolumeKey(volumeName)),
+          new CacheValue<>(Optional.of(omVolumeArgs), trxnLogIndex));
+
       // No need to add cache entries to delete table. As delete table will
       // be used by DeleteKeyService only, not used for any client response
       // validation, so we don't need to add to cache.
@@ -150,7 +175,7 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
 
       omClientResponse = new OMKeyDeleteResponse(omResponse
           .setDeleteKeyResponse(DeleteKeyResponse.newBuilder()).build(),
-          omKeyInfo, ozoneManager.isRatisEnabled());
+          omKeyInfo, ozoneManager.isRatisEnabled(), omVolumeArgs);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -162,8 +187,12 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
             omDoubleBufferHelper);
       if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
-            bucketName);
+        if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+          omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        } else {
+          omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+              bucketName);
+        }
       }
     }
 

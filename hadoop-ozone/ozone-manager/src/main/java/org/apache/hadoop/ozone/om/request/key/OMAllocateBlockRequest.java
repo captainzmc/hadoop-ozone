@@ -25,6 +25,7 @@ import java.util.Map;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
@@ -45,22 +46,16 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.key.OMAllocateBlockResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .AllocateBlockRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .AllocateBlockResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .KeyArgs;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.AllocateBlockRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.AllocateBlockResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
-
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes
-    .KEY_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
  * Handles allocate block request.
@@ -171,6 +166,8 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
 
     OmKeyInfo openKeyInfo;
     IOException exception = null;
+    OmVolumeArgs omVolumeArgs = null;
+    boolean acquireLock = false;
 
     try {
       keyArgs = resolveBucketLink(ozoneManager, keyArgs, auditMap);
@@ -196,8 +193,9 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
       }
 
       // Append new block
-      openKeyInfo.appendNewBlocks(Collections.singletonList(
-          OmKeyLocationInfo.getFromProtobuf(blockLocation)), false);
+      List<OmKeyLocationInfo> newLocationList = Collections.singletonList(
+          OmKeyLocationInfo.getFromProtobuf(blockLocation));
+      openKeyInfo.appendNewBlocks(newLocationList, false);
 
       // Set modification time.
       openKeyInfo.setModificationTime(keyArgs.getModificationTime());
@@ -210,10 +208,25 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
           new CacheKey<>(openKeyName),
           new CacheValue<>(Optional.of(openKeyInfo), trxnLogIndex));
 
+      omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
+
+      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        acquireLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
+            volumeName);
+      }
+      long scmBlockSize = ozoneManager.getScmBlockSize();
+      omVolumeArgs.setQuotaUsageInBytes(newLocationList.size() * scmBlockSize
+          * openKeyInfo.getFactor().getNumber()
+          + omVolumeArgs.getQuotaUsageInBytes());
+      // update volume quotaUsageInBytes.
+      omMetadataManager.getVolumeTable().addCacheEntry(
+          new CacheKey<>(omMetadataManager.getVolumeKey(volumeName)),
+          new CacheValue<>(Optional.of(omVolumeArgs), trxnLogIndex));
+
       omResponse.setAllocateBlockResponse(AllocateBlockResponse.newBuilder()
           .setKeyLocation(blockLocation).build());
       omClientResponse = new OMAllocateBlockResponse(omResponse.build(),
-          openKeyInfo, clientID);
+          openKeyInfo, clientID, omVolumeArgs);
 
       LOG.debug("Allocated block for Volume:{}, Bucket:{}, OpenKey:{}",
           volumeName, bucketName, openKeyName);
@@ -227,6 +240,9 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
+      if (acquireLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+      }
     }
 
     auditLog(auditLogger, buildAuditMessage(OMAction.ALLOCATE_BLOCK, auditMap,

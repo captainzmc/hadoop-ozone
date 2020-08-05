@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
@@ -45,22 +46,18 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.key.OMKeyCommitResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .CommitKeyRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .KeyArgs;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .KeyLocation;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CommitKeyRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyLocation;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
  * Handles CommitKey request.
@@ -125,6 +122,7 @@ public class OMKeyCommitRequest extends OMKeyRequest {
 
     IOException exception = null;
     OmKeyInfo omKeyInfo = null;
+    OmVolumeArgs omVolumeArgs = null;
     OMClientResponse omClientResponse = null;
     boolean bucketLockAcquired = false;
     Result result;
@@ -152,9 +150,17 @@ public class OMKeyCommitRequest extends OMKeyRequest {
         locationInfoList.add(OmKeyLocationInfo.getFromProtobuf(keyLocation));
       }
 
-      bucketLockAcquired =
-          omMetadataManager.getLock().acquireLock(BUCKET_LOCK,
-              volumeName, bucketName);
+      omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
+
+      // If Ozone Volume space quota is not enabled, bucket locks are added by
+      // default. Mitigate the impact on performance.
+      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        bucketLockAcquired = omMetadataManager.getLock().acquireWriteLock(
+            VOLUME_LOCK, volumeName);
+      } else {
+        bucketLockAcquired = omMetadataManager.getLock().acquireWriteLock(
+            BUCKET_LOCK, volumeName, bucketName);
+      }
 
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
@@ -182,8 +188,18 @@ public class OMKeyCommitRequest extends OMKeyRequest {
           new CacheKey<>(dbOzoneKey),
           new CacheValue<>(Optional.of(omKeyInfo), trxnLogIndex));
 
+      long scmBlockSize = ozoneManager.getScmBlockSize();
+      int factor = omKeyInfo.getFactor().getNumber();
+      omVolumeArgs.setQuotaUsageInBytes(omVolumeArgs.getQuotaUsageInBytes() -
+          locationInfoList.size() * scmBlockSize * factor +
+          omKeyInfo.getDataSize() * factor);
+      // update volume quotaUsageInBytes.
+      omMetadataManager.getVolumeTable().addCacheEntry(
+          new CacheKey<>(omMetadataManager.getVolumeKey(volumeName)),
+          new CacheValue<>(Optional.of(omVolumeArgs), trxnLogIndex));
+
       omClientResponse = new OMKeyCommitResponse(omResponse.build(),
-          omKeyInfo, dbOzoneKey, dbOpenKey);
+          omKeyInfo, dbOzoneKey, dbOpenKey, omVolumeArgs);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -195,9 +211,13 @@ public class OMKeyCommitRequest extends OMKeyRequest {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
 
-      if(bucketLockAcquired) {
-        omMetadataManager.getLock().releaseLock(BUCKET_LOCK, volumeName,
-            bucketName);
+      if (bucketLockAcquired) {
+        if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+          omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        } else {
+          omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+              bucketName);
+        }
       }
     }
 

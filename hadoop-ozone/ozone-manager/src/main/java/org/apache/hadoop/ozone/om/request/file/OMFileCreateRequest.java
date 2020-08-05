@@ -32,6 +32,7 @@ import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.response.file.OMFileCreateResponse;
 import org.slf4j.Logger;
@@ -50,18 +51,12 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .CreateFileRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .CreateFileResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .KeyArgs;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .Type;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateFileRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateFileResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.util.Time;
@@ -69,10 +64,11 @@ import org.apache.hadoop.hdds.utils.UniqueId;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryResult.DIRECTORY_EXISTS;
 import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryResult.FILE_EXISTS_IN_GIVENPATH;
 import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryResult.FILE_EXISTS;
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
 /**
  * Handles create file request.
@@ -191,6 +187,7 @@ public class OMFileCreateRequest extends OMKeyRequest {
     boolean acquiredLock = false;
 
     OmKeyInfo omKeyInfo = null;
+    OmVolumeArgs omVolumeArgs = null;
     final List<OmKeyLocationInfo> locations = new ArrayList<>();
     List<OmKeyInfo> missingParentInfos;
 
@@ -208,9 +205,17 @@ public class OMFileCreateRequest extends OMKeyRequest {
       checkKeyAcls(ozoneManager, volumeName, bucketName, keyName,
           IAccessAuthorizer.ACLType.CREATE, OzoneObj.ResourceType.KEY);
 
-      // acquire lock
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
+
+      // If Ozone Volume space quota is not enabled, bucket locks are added by
+      // default. Mitigate the impact on performance.
+      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        acquiredLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
+            volumeName);
+      } else {
+        acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+            volumeName, bucketName);
+      }
 
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
@@ -275,9 +280,10 @@ public class OMFileCreateRequest extends OMKeyRequest {
               pathInfo.getMissingParents(), inheritAcls, trxnLogIndex);
 
       // Append new blocks
-      omKeyInfo.appendNewBlocks(keyArgs.getKeyLocationsList().stream()
-          .map(OmKeyLocationInfo::getFromProtobuf)
-          .collect(Collectors.toList()), false);
+      List<OmKeyLocationInfo> newLocationList = keyArgs.getKeyLocationsList()
+          .stream().map(OmKeyLocationInfo::getFromProtobuf)
+          .collect(Collectors.toList());
+      omKeyInfo.appendNewBlocks(newLocationList, false);
 
       // Add to cache entry can be done outside of lock for this openKey.
       // Even if bucket gets deleted, when commitKey we shall identify if
@@ -292,6 +298,15 @@ public class OMFileCreateRequest extends OMKeyRequest {
           bucketName, Optional.absent(), Optional.of(missingParentInfos),
           trxnLogIndex);
 
+      long scmBlockSize = ozoneManager.getScmBlockSize();
+      omVolumeArgs.setQuotaUsageInBytes(newLocationList.size() * scmBlockSize
+          * omKeyInfo.getFactor().getNumber()
+          + omVolumeArgs.getQuotaUsageInBytes());
+      // update volume quotaUsageInBytes.
+      omMetadataManager.getVolumeTable().addCacheEntry(
+          new CacheKey<>(omMetadataManager.getVolumeKey(volumeName)),
+          new CacheValue<>(Optional.of(omVolumeArgs), trxnLogIndex));
+
       // Prepare response
       omResponse.setCreateFileResponse(CreateFileResponse.newBuilder()
           .setKeyInfo(omKeyInfo.getProtobuf())
@@ -299,7 +314,7 @@ public class OMFileCreateRequest extends OMKeyRequest {
           .setOpenVersion(openVersion).build())
           .setCmdType(Type.CreateFile);
       omClientResponse = new OMFileCreateResponse(omResponse.build(),
-          omKeyInfo, missingParentInfos, clientID);
+          omKeyInfo, missingParentInfos, clientID, omVolumeArgs);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -313,8 +328,12 @@ public class OMFileCreateRequest extends OMKeyRequest {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
       if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
-            bucketName);
+        if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+          omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        } else {
+          omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+              bucketName);
+        }
       }
     }
 
