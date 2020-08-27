@@ -206,10 +206,18 @@ public class OMFileCreateRequest extends OMKeyRequest {
           IAccessAuthorizer.ACLType.CREATE, OzoneObj.ResourceType.KEY);
 
       omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
+      // Append new blocks
+      List<OmKeyLocationInfo> newLocationList = keyArgs.getKeyLocationsList()
+          .stream().map(OmKeyLocationInfo::getFromProtobuf)
+          .collect(Collectors.toList());
 
       // If Ozone Volume space quota is not enabled, bucket locks are added by
       // default. Mitigate the impact on performance.
       if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        long allocateSize = ozoneManager.getScmBlockSize()
+            * newLocationList.size() * omKeyInfo.getFactor().getNumber();
+        //check Quota
+        checkVolumeQuotaInBytes(omVolumeArgs, allocateSize);
         acquiredLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
             volumeName);
       } else {
@@ -279,10 +287,6 @@ public class OMFileCreateRequest extends OMKeyRequest {
           .getAllParentInfo(ozoneManager, keyArgs,
               pathInfo.getMissingParents(), inheritAcls, trxnLogIndex);
 
-      // Append new blocks
-      List<OmKeyLocationInfo> newLocationList = keyArgs.getKeyLocationsList()
-          .stream().map(OmKeyLocationInfo::getFromProtobuf)
-          .collect(Collectors.toList());
       omKeyInfo.appendNewBlocks(newLocationList, false);
 
       // Add to cache entry can be done outside of lock for this openKey.

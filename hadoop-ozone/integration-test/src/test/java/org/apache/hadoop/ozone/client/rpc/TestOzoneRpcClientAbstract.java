@@ -798,6 +798,136 @@ public abstract class TestOzoneRpcClientAbstract {
   }
 
   @Test
+  public void testVolumeSpaceQuota() throws IOException {
+    String volumeName = UUID.randomUUID().toString();
+    String bucketName = UUID.randomUUID().toString();
+    OzoneVolume volume = null;
+
+    String value = "sample value";
+    int valueLength = value.getBytes().length;
+    long currentQuotaUsage = 0L;
+    store.createVolume(volumeName);
+    volume = store.getVolume(volumeName);
+
+    // Case1: Test the volumeSpaceQuota of ONE replications.
+    // The test cluster defaults to a block size of 4MB, and the Quota is also
+    // set to 4MB, so only single-copy blocks smaller than 4MB can be written.
+    store.getVolume(volumeName).setQuota(
+        OzoneQuota.parseQuota("4 MB"));
+    volume.createBucket(bucketName);
+    OzoneBucket bucket = volume.getBucket(bucketName);
+
+//    String keyName1 = UUID.randomUUID().toString();
+    writeKey(bucket, UUID.randomUUID().toString(), ONE, value, valueLength);
+    // The remaining quota does not satisfy a block size, so the write fails.
+    try {
+      writeKey(bucket, UUID.randomUUID().toString(), ONE, value, valueLength);
+    } catch (IOException ex) {
+      GenericTestUtils.assertExceptionContains("QUOTA_CHECK_ERROR", ex);
+    }
+
+//    // Case2: Test overwrite the same KeyName under ONE Replicates, the
+//    // keyLocationVersions of the Key is 2.
+//    String keyName2 = UUID.randomUUID().toString();
+//    writeKey(bucket, keyName2, ONE, value, valueLength);
+//    // Overwrite the keyName2
+//    writeKey(bucket, keyName2, ONE, value, valueLength);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(valueLength * 2 + currentQuotaUsage,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage += valueLength * 2;
+//
+//    // Case3: Test the volumeQuotaUsageInBytes of THREE replications.
+//    String keyName3 = UUID.randomUUID().toString();
+//    writeKey(bucket, keyName3, THREE, value, valueLength);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(valueLength * 3 + currentQuotaUsage,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage += valueLength * 3;
+//
+//    // Case4: Test overwrite the same KeyName under THREE Replicates, the
+//    // keyLocationVersions of the Key is 2.
+//    String keyName4 = UUID.randomUUID().toString();
+//    writeKey(bucket, keyName4, THREE, value, valueLength);
+//    // Overwrite the keyName4
+//    writeKey(bucket, keyName4, THREE, value, valueLength);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(valueLength * 3 * 2 + currentQuotaUsage,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage += valueLength * 3 * 2;
+//
+//    //Case5: Do not specify the value Length, simulate HDFS api writing.
+//    // Test the volumeQuotaUsageInBytes of ONE replications.
+//    String keyName5 = UUID.randomUUID().toString();
+//    writeKey(bucket, keyName5, ONE, value, 0);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(valueLength + currentQuotaUsage,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage += valueLength;
+//
+//    // Case6: Do not specify the value Length, simulate HDFS api writing.
+//    // Test overwrite the same KeyName under ONE Replicates, the
+//    // keyLocationVersions of the Key is 2.
+//    String keyName6 = UUID.randomUUID().toString();
+//    writeKey(bucket, keyName6, ONE, value, 0);
+//    // Overwrite the keyName6
+//    writeKey(bucket, keyName6, ONE, value, 0);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(valueLength * 2 + currentQuotaUsage,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage += valueLength * 2;
+//
+//    // Case7: Do not specify the value Length, simulate HDFS api writing.
+//    // Test the volumeQuotaUsageInBytes of THREE replications.
+//    String keyName7 = UUID.randomUUID().toString();
+//    writeKey(bucket, keyName7, THREE, value, 0);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(valueLength * 3 + currentQuotaUsage,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage += valueLength * 3;
+//
+//    // Case8: Do not specify the value Length, simulate HDFS api writing.
+//    // Test overwrite the same KeyName under THREE Replicates, the
+//    // keyLocationVersions of the Key is 2.
+//    String keyName8 = UUID.randomUUID().toString();
+//    writeKey(bucket, keyName8, THREE, value, 0);
+//    // Overwrite the keyName8
+//    writeKey(bucket, keyName8, THREE, value, 0);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(valueLength * 3 * 2 + currentQuotaUsage,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage += valueLength * 3 * 2;
+//
+//    // Case9: Test volumeQuotaUsageInBytes when delete key of ONE replications.
+//    bucket.deleteKey(keyName1);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(currentQuotaUsage - valueLength,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage -= valueLength;
+//
+//    // Case10: Test volumeQuotaUsageInBytes when delete key of THREE
+//    // replications.
+//    bucket.deleteKey(keyName3);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(currentQuotaUsage - valueLength * 3,
+//        volume.getQuotaUsageInBytes());
+//    currentQuotaUsage -= valueLength * 3;
+//
+//    // Case11: Test volumeQuotaUsageInBytes when Test Delete keys. At this
+//    // point all keys are deleted, volumeQuotaUsageInBytes should be 0
+//    List<String> keyList = new ArrayList<>();
+//    keyList.add(keyName2);
+//    keyList.add(keyName4);
+//    keyList.add(keyName5);
+//    keyList.add(keyName6);
+//    keyList.add(keyName7);
+//    keyList.add(keyName8);
+//    bucket.deleteKeys(keyList);
+//    volume = store.getVolume(volumeName);
+//    Assert.assertEquals(0, volume.getQuotaUsageInBytes());
+  }
+
+  @Test
   public void testValidateBlockLengthWithCommitKey() throws IOException {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();

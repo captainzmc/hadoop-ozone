@@ -227,6 +227,8 @@ public class OMException extends IOException {
 
     DETECTED_LOOP_IN_BUCKET_LINKS,
 
-    NOT_SUPPORTED_OPERATION
+    NOT_SUPPORTED_OPERATION,
+
+    QUOTA_CHECK_ERROR
   }
 }

@@ -219,16 +219,9 @@ public class OMKeyCreateRequest extends OMKeyRequest {
           IAccessAuthorizer.ACLType.CREATE, OzoneObj.ResourceType.KEY);
 
       omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
-
-      // If Ozone Volume space quota is not enabled, bucket locks are added by
-      // default. Mitigate the impact on performance.
-      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
-        acquireLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
-            volumeName);
-      } else {
-        acquireLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-            volumeName, bucketName);
-      }
+      List<OmKeyLocationInfo> newLocationList = keyArgs.getKeyLocationsList()
+          .stream().map(OmKeyLocationInfo::getFromProtobuf)
+          .collect(Collectors.toList());
 
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
       //TODO: We can optimize this get here, if getKmsProvider is null, then
@@ -247,6 +240,25 @@ public class OMKeyCreateRequest extends OMKeyRequest {
 
       OmBucketInfo bucketInfo = omMetadataManager.getBucketTable().get(
           omMetadataManager.getBucketKey(volumeName, bucketName));
+      omKeyInfo = prepareKeyInfo(omMetadataManager, keyArgs, dbKeyInfo,
+          keyArgs.getDataSize(), locations, getFileEncryptionInfo(keyArgs),
+          ozoneManager.getPrefixManager(), bucketInfo, trxnLogIndex,
+          ozoneManager.isRatisEnabled());
+      LOG.error("======="+ozoneManager.getScmBlockSize());
+      // If Ozone Volume space quota is not enabled, bucket locks are added by
+      // default. Mitigate the impact on performance.
+      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        long allocateSize = ozoneManager.getScmBlockSize()
+            * newLocationList.size() * omKeyInfo.getFactor().getNumber();
+        LOG.error("======allocateSize="+allocateSize);
+        //check Quota
+        checkVolumeQuotaInBytes(omVolumeArgs, allocateSize);
+        acquireLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
+            volumeName);
+      } else {
+        acquireLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+            volumeName, bucketName);
+      }
 
       // If FILE_EXISTS we just override like how we used to do for Key Create.
       List< OzoneAcl > inheritAcls;
@@ -281,20 +293,12 @@ public class OMKeyCreateRequest extends OMKeyRequest {
 
       }
 
-      omKeyInfo = prepareKeyInfo(omMetadataManager, keyArgs, dbKeyInfo,
-          keyArgs.getDataSize(), locations, getFileEncryptionInfo(keyArgs),
-          ozoneManager.getPrefixManager(), bucketInfo, trxnLogIndex,
-          ozoneManager.isRatisEnabled());
-
       long openVersion = omKeyInfo.getLatestVersionLocations().getVersion();
       long clientID = createKeyRequest.getClientID();
       String dbOpenKeyName = omMetadataManager.getOpenKey(volumeName,
           bucketName, keyName, clientID);
 
       // Append new blocks
-      List<OmKeyLocationInfo> newLocationList = keyArgs.getKeyLocationsList()
-          .stream().map(OmKeyLocationInfo::getFromProtobuf)
-          .collect(Collectors.toList());
       omKeyInfo.appendNewBlocks(newLocationList, false);
 
       // Add to cache entry can be done outside of lock for this openKey.

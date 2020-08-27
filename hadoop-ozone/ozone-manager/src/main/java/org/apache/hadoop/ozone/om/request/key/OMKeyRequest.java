@@ -395,6 +395,25 @@ public abstract class OMKeyRequest extends OMClientRequest {
   }
 
   /**
+   * Check Quota.
+   * @param omVolumeArgs
+   * @param allocateSize
+   * @throws IOException
+   */
+  protected void checkVolumeQuotaInBytes(OmVolumeArgs omVolumeArgs,
+      long allocateSize) throws IOException {
+    long quotaUsageInBytes = omVolumeArgs.getQuotaUsageInBytes();
+    long quotaInBytes = omVolumeArgs.getQuotaInBytes();
+    if (quotaInBytes - quotaUsageInBytes < allocateSize) {
+      throw new OMException("The DiskSpace quota of volume:"
+          + omVolumeArgs.getVolume() + "exceeded: quotaInBytes = "
+          + quotaInBytes + " B but diskspace consumed = " + quotaUsageInBytes
+          + allocateSize + " B",
+          OMException.ResultCodes.QUOTA_CHECK_ERROR);
+    }
+  }
+
+  /**
    * Check Acls for the ozone bucket.
    * @param ozoneManager
    * @param volume

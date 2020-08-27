@@ -308,6 +308,8 @@ enum Status {
     DETECTED_LOOP_IN_BUCKET_LINKS = 63;
 
     NOT_SUPPORTED_OPERATION = 64;
+
+    QUOTA_CHECK_ERROR = 65;
 }
 
 /**

@@ -195,6 +195,15 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
       // Append new block
       List<OmKeyLocationInfo> newLocationList = Collections.singletonList(
           OmKeyLocationInfo.getFromProtobuf(blockLocation));
+
+      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
+        long allocateSize = ozoneManager.getScmBlockSize()
+            * newLocationList.size() * openKeyInfo.getFactor().getNumber();
+        //check Quota
+        checkVolumeQuotaInBytes(omVolumeArgs, allocateSize);
+        acquireLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
+            volumeName);
+      }
       openKeyInfo.appendNewBlocks(newLocationList, false);
 
       // Set modification time.
@@ -210,10 +219,6 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
 
       omVolumeArgs = getVolumeInfo(omMetadataManager, volumeName);
 
-      if (omVolumeArgs.getQuotaInBytes() < OzoneConsts.MAX_QUOTA_IN_BYTES) {
-        acquireLock = omMetadataManager.getLock().acquireWriteLock(VOLUME_LOCK,
-            volumeName);
-      }
       long scmBlockSize = ozoneManager.getScmBlockSize();
       omVolumeArgs.setQuotaUsageInBytes(newLocationList.size() * scmBlockSize
           * openKeyInfo.getFactor().getNumber()
