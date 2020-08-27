@@ -267,8 +267,7 @@ public abstract class TestOzoneRpcClientAbstract {
   }
 
   @Test
-  public void testSetVolumeQuota()
-      throws IOException {
+  public void testSetVolumeQuota() throws IOException {
     String volumeName = UUID.randomUUID().toString();
     store.createVolume(volumeName);
     store.getVolume(volumeName).setQuota(OzoneQuota.parseQuota("1GB", 1000L));
@@ -276,6 +275,39 @@ public abstract class TestOzoneRpcClientAbstract {
     Assert.assertEquals(1024 * 1024 * 1024,
         volume.getQuotaInBytes());
     Assert.assertEquals(1000L, volume.getQuotaInCounts());
+  }
+
+  @Test
+  public void testSetVolumeQuotaIllegal()
+      throws IOException {
+    String volumeName = UUID.randomUUID().toString();
+    store.createVolume(volumeName);
+    // The unit should be legal.
+    try {
+      store.getVolume(volumeName).setQuota(OzoneQuota.parseQuota(
+          "1TEST", 1000L));
+    } catch (IllegalArgumentException ex) {
+      GenericTestUtils.assertExceptionContains(
+          "Invalid values for quota", ex);
+    }
+
+    // The setting value cannot be greater than long.max_value.
+    try {
+      store.getVolume(volumeName).setQuota(OzoneQuota.parseQuota(
+          "999999999999999GB", 1000L));
+    } catch (IllegalArgumentException ex) {
+      GenericTestUtils.assertExceptionContains(
+          "Invalid values for quota", ex);
+    }
+
+    // The value cannot be negative.
+    try {
+      store.getVolume(volumeName).setQuota(OzoneQuota.parseQuota(
+          "-10GB", 1000L));
+    } catch (IllegalArgumentException ex) {
+      GenericTestUtils.assertExceptionContains(
+          "Quota cannot be negative.", ex);
+    }
   }
 
   @Test

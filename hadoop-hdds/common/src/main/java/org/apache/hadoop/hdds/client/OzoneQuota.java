@@ -112,8 +112,8 @@ public final class OzoneQuota {
    * Constructs a default Quota object.
    */
   private OzoneQuota() {
-    this.quotaInCounts = OzoneConsts.QUOTA_COUNT_RESET;
-    this.quotaInBytes = OzoneConsts.MAX_QUOTA_IN_BYTES;
+    this.quotaInCounts = OzoneConsts.QUOTA_RESET;
+    this.quotaInBytes = OzoneConsts.QUOTA_RESET;
   }
 
   /**
@@ -158,51 +158,46 @@ public final class OzoneQuota {
     String uppercase = quotaInBytes.toUpperCase()
         .replaceAll("\\s+", "");
     String size = "";
-    int nSize;
+    long nSize = 0;
     Units currUnit = Units.MB;
-    boolean found = false;
 
-    if (uppercase.endsWith(OZONE_QUOTA_KB)) {
-      size = uppercase
-          .substring(0, uppercase.length() - OZONE_QUOTA_KB.length());
-      currUnit = Units.KB;
-      found = true;
+    try {
+      if (uppercase.endsWith(OZONE_QUOTA_KB)) {
+        size = uppercase
+            .substring(0, uppercase.length() - OZONE_QUOTA_KB.length());
+        currUnit = Units.KB;
+      }
+
+      if (uppercase.endsWith(OZONE_QUOTA_MB)) {
+        size = uppercase
+            .substring(0, uppercase.length() - OZONE_QUOTA_MB.length());
+        currUnit = Units.MB;
+      }
+
+      if (uppercase.endsWith(OZONE_QUOTA_GB)) {
+        size = uppercase
+            .substring(0, uppercase.length() - OZONE_QUOTA_GB.length());
+        currUnit = Units.GB;
+      }
+
+      if (uppercase.endsWith(OZONE_QUOTA_TB)) {
+        size = uppercase
+            .substring(0, uppercase.length() - OZONE_QUOTA_TB.length());
+        currUnit = Units.TB;
+      }
+
+      if (uppercase.endsWith(OZONE_QUOTA_BYTES)) {
+        size = uppercase
+            .substring(0, uppercase.length() - OZONE_QUOTA_BYTES.length());
+        currUnit = Units.BYTES;
+      }
+      nSize = Long.parseLong(size);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException("Invalid values for quota, to ensure" +
+          " that the Quota format is legal(supported values are BYTES, KB, " +
+          "MB, GB and TB).");
     }
 
-    if (uppercase.endsWith(OZONE_QUOTA_MB)) {
-      size = uppercase
-          .substring(0, uppercase.length() - OZONE_QUOTA_MB.length());
-      currUnit = Units.MB;
-      found = true;
-    }
-
-    if (uppercase.endsWith(OZONE_QUOTA_GB)) {
-      size = uppercase
-          .substring(0, uppercase.length() - OZONE_QUOTA_GB.length());
-      currUnit = Units.GB;
-      found = true;
-    }
-
-    if (uppercase.endsWith(OZONE_QUOTA_TB)) {
-      size = uppercase
-          .substring(0, uppercase.length() - OZONE_QUOTA_TB.length());
-      currUnit = Units.TB;
-      found = true;
-    }
-
-    if (uppercase.endsWith(OZONE_QUOTA_BYTES)) {
-      size = uppercase
-          .substring(0, uppercase.length() - OZONE_QUOTA_BYTES.length());
-      currUnit = Units.BYTES;
-      found = true;
-    }
-
-    if (!found) {
-      throw new IllegalArgumentException("Quota unit not recognized. " +
-          "Supported values are BYTES, KB, MB, GB and TB.");
-    }
-
-    nSize = Integer.parseInt(size);
     if (nSize < 0) {
       throw new IllegalArgumentException("Quota cannot be negative.");
     }

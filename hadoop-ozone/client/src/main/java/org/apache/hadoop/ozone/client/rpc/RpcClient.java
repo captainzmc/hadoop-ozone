@@ -282,7 +282,7 @@ public class RpcClient implements ClientProtocol {
         ugi.getUserName() : volArgs.getOwner();
     long quotaInCounts = volArgs.getQuotaInCounts();
     long quotaInBytes = volArgs.getQuotaInBytes() == null ?
-        OzoneConsts.MAX_QUOTA_IN_BYTES :
+        OzoneConsts.QUOTA_RESET :
         OzoneQuota.parseQuota(volArgs.getQuotaInBytes(), quotaInCounts)
             .getQuotaInBytes();
     List<OzoneAcl> listOfAcls = new ArrayList<>();
@@ -335,7 +335,7 @@ public class RpcClient implements ClientProtocol {
   public void setVolumeQuota(String volumeName, long quotaInCounts,
       long quotaInBytes) throws IOException {
     HddsClientUtils.verifyResourceName(volumeName);
-    if ((quotaInCounts < 0 && quotaInCounts != OzoneConsts.QUOTA_COUNT_RESET)
+    if ((quotaInCounts < 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)
         || quotaInBytes <= 0) {
       throw new IllegalArgumentException("Invalid values for quota : " +
           "counts quota is :" + quotaInCounts + " and " +
