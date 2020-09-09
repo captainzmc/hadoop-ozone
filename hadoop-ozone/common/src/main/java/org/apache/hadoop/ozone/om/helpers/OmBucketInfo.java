@@ -80,6 +80,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
 
   private final String sourceBucket;
 
+  private long quotaInBytes;
+  private long quotaInCounts;
+
   /**
    * Private constructor, constructed via builder.
    * @param volumeName - Volume name.
@@ -107,7 +110,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
       Map<String, String> metadata,
       BucketEncryptionKeyInfo bekInfo,
       String sourceVolume,
-      String sourceBucket) {
+      String sourceBucket,
+      long quotaInBytes,
+      long quotaInCounts) {
     this.volumeName = volumeName;
     this.bucketName = bucketName;
     this.acls = acls;
@@ -121,6 +126,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
     this.bekInfo = bekInfo;
     this.sourceVolume = sourceVolume;
     this.sourceBucket = sourceBucket;
+    this.quotaInBytes = quotaInBytes;
+    this.quotaInCounts = quotaInCounts;
   }
 
   /**
@@ -226,6 +233,14 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
     return sourceBucket;
   }
 
+  public long getQuotaInBytes() {
+    return quotaInBytes;
+  }
+
+  public long getQuotaInCounts() {
+    return quotaInCounts;
+  }
+
   public boolean isLink() {
     return sourceVolume != null && sourceBucket != null;
   }
@@ -296,7 +311,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
         .setSourceVolume(sourceVolume)
         .setSourceBucket(sourceBucket)
         .setAcls(acls)
-        .addAllMetadata(metadata);
+        .addAllMetadata(metadata)
+        .setQuotaInBytes(quotaInBytes)
+        .setQuotaInCounts(quotaInCounts);
   }
 
   /**
@@ -316,6 +333,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
     private BucketEncryptionKeyInfo bekInfo;
     private String sourceVolume;
     private String sourceBucket;
+    private long quotaInBytes;
+    private long quotaInCounts;
 
     public Builder() {
       //Default values
@@ -407,6 +426,16 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
       return this;
     }
 
+    public Builder setQuotaInBytes(long quota) {
+      this.quotaInBytes = quota;
+      return this;
+    }
+
+    public Builder setQuotaInCounts(long quota) {
+      this.quotaInCounts = quota;
+      return this;
+    }
+
     /**
      * Constructs the OmBucketInfo.
      * @return instance of OmBucketInfo.
@@ -420,7 +449,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
 
       return new OmBucketInfo(volumeName, bucketName, acls, isVersionEnabled,
           storageType, creationTime, modificationTime, objectID, updateID,
-          metadata, bekInfo, sourceVolume, sourceBucket);
+          metadata, bekInfo, sourceVolume, sourceBucket, quotaInBytes,
+          quotaInCounts);
     }
   }
 
@@ -438,7 +468,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
         .setModificationTime(modificationTime)
         .setObjectID(objectID)
         .setUpdateID(updateID)
-        .addAllMetadata(KeyValueUtil.toProtobuf(metadata));
+        .addAllMetadata(KeyValueUtil.toProtobuf(metadata))
+        .setQuotaInBytes(quotaInBytes)
+        .setQuotaInCounts(quotaInCounts);
     if (bekInfo != null && bekInfo.getKeyName() != null) {
       bib.setBeinfo(OMPBHelper.convert(bekInfo));
     }
@@ -465,7 +497,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
         .setIsVersionEnabled(bucketInfo.getIsVersionEnabled())
         .setStorageType(StorageType.valueOf(bucketInfo.getStorageType()))
         .setCreationTime(bucketInfo.getCreationTime())
-        .setModificationTime(bucketInfo.getModificationTime());
+        .setModificationTime(bucketInfo.getModificationTime())
+        .setQuotaInBytes(bucketInfo.getQuotaInBytes())
+        .setQuotaInCounts(bucketInfo.getQuotaInCounts());
     if (bucketInfo.hasObjectID()) {
       obib.setObjectID(bucketInfo.getObjectID());
     }
@@ -500,6 +534,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
         ", isVersionEnabled='" + isVersionEnabled + "'" +
         ", storageType='" + storageType + "'" +
         ", creationTime='" + creationTime + "'" +
+        ", quotaInBytes='" + quotaInBytes + "'" +
+        ", quotaInCounts='" + quotaInCounts + "'" +
         sourceInfo +
         '}';
   }

@@ -270,6 +270,68 @@ public abstract class TestOzoneRpcClientAbstract {
   }
 
   @Test
+  public void testSetBucketQuota() throws IOException {
+    String volumeName = UUID.randomUUID().toString();
+    String bucketName = UUID.randomUUID().toString();
+    store.createVolume(volumeName);
+    store.getVolume(volumeName).setQuota(OzoneQuota.parseQuota(
+        "10GB", 10000L));
+    store.getVolume(volumeName).createBucket(bucketName);
+    OzoneBucket bucket = store.getVolume(volumeName).getBucket(bucketName);
+
+    Assert.assertEquals(OzoneConsts.QUOTA_RESET, bucket.getQuotaInBytes());
+    Assert.assertEquals(OzoneConsts.QUOTA_RESET, bucket.getQuotaInCounts());
+    store.getVolume(volumeName).getBucket(bucketName).setQuota(
+        OzoneQuota.parseQuota("1GB", 1000L));
+    OzoneBucket ozoneBucket = store.getVolume(volumeName).getBucket(bucketName);
+    Assert.assertEquals(1024 * 1024 * 1024,
+        ozoneBucket.getQuotaInBytes());
+    Assert.assertEquals(1000L, ozoneBucket.getQuotaInCounts());
+  }
+
+  @Test
+  public void testSetBucketQuotaIllegal() throws IOException {
+    String volumeName = UUID.randomUUID().toString();
+    String bucketName = UUID.randomUUID().toString();
+    store.createVolume(volumeName);
+    store.getVolume(volumeName).createBucket(bucketName);
+
+    try {
+      store.getVolume(volumeName).getBucket(bucketName).setQuota(
+          OzoneQuota.parseQuota("1GB", -100L));
+    } catch (IllegalArgumentException ex) {
+      GenericTestUtils.assertExceptionContains(
+          "Invalid values for quota", ex);
+    }
+    // The unit should be legal.
+    try {
+      store.getVolume(volumeName).getBucket(bucketName).setQuota(
+          OzoneQuota.parseQuota("1TEST", 100L));
+    } catch (IllegalArgumentException ex) {
+      GenericTestUtils.assertExceptionContains(
+          "Invalid values for quota", ex);
+    }
+
+    // The setting value cannot be greater than LONG.MAX_VALUE BYTES.
+    try {
+      store.getVolume(volumeName).getBucket(bucketName).setQuota(
+          OzoneQuota.parseQuota("9999999999999GB", 100L));
+    } catch (IllegalArgumentException ex) {
+      GenericTestUtils.assertExceptionContains(
+          "Invalid values for quota", ex);
+    }
+
+    // The value cannot be negative.
+    try {
+      store.getVolume(volumeName).getBucket(bucketName).setQuota(
+          OzoneQuota.parseQuota("-10GB", 100L));
+    } catch (IllegalArgumentException ex) {
+      GenericTestUtils.assertExceptionContains(
+          "Quota cannot be negative.", ex);
+    }
+  }
+
+  @Test
   public void testSetVolumeQuota() throws IOException {
     String volumeName = UUID.randomUUID().toString();
     store.createVolume(volumeName);

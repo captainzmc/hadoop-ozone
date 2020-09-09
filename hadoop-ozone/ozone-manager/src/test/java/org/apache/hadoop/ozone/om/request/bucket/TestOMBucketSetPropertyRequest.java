@@ -34,6 +34,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
     .SetBucketPropertyRequest;
 
+import static org.apache.hadoop.ozone.OzoneConsts.GB;
+
 /**
  * Tests OMBucketSetPropertyRequest class which handles OMSetBucketProperty
  * request.
@@ -115,6 +117,8 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
         SetBucketPropertyRequest.newBuilder().setBucketArgs(
             BucketArgs.newBuilder().setBucketName(bucketName)
                 .setVolumeName(volumeName)
+                .setQuotaInBytes(10 * GB)
+                .setQuotaInCounts(1000L)
                 .setIsVersionEnabled(isVersionEnabled).build()))
         .setCmdType(OzoneManagerProtocolProtos.Type.SetBucketProperty)
         .setClientId(UUID.randomUUID().toString()).build();

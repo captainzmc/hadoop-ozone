@@ -22,8 +22,10 @@ import java.io.IOException;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.audit.OMAction;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.slf4j.Logger;
@@ -150,6 +152,14 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
             .setIsVersionEnabled(dbBucketInfo.getIsVersionEnabled());
       }
 
+      //Check quotaInBytes and quotaInCounts to update
+      String volumeKey = omMetadataManager.getVolumeKey(volumeName);
+      OmVolumeArgs omVolumeArgs = omMetadataManager.getVolumeTable()
+          .get(volumeKey);
+      if (checkQuotaValid(omVolumeArgs, omBucketArgs)) {
+        bucketInfoBuilder.setQuotaInBytes(omBucketArgs.getQuotaInBytes());
+        bucketInfoBuilder.setQuotaInCounts(omBucketArgs.getQuotaInCounts());
+      }
       bucketInfoBuilder.setCreationTime(dbBucketInfo.getCreationTime());
 
       // Set acls from dbBucketInfo if it has any.
@@ -205,5 +215,29 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
       omMetrics.incNumBucketUpdateFails();
       return omClientResponse;
     }
+  }
+
+  public boolean checkQuotaValid(OmVolumeArgs omVolumeArgs,
+      OmBucketArgs omBucketArgs) {
+    long volumeQuotaInBytes = omVolumeArgs.getQuotaInBytes();
+    long volumeQuotaInCounts = omVolumeArgs.getQuotaInCounts();
+    long quotaInCounts = omBucketArgs.getQuotaInCounts();
+    long quotaInBytes = omBucketArgs.getQuotaInBytes();
+
+    if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)
+        || (quotaInBytes <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)) {
+      throw new IllegalArgumentException("Invalid values for quota : " +
+          "counts quota is :" + quotaInCounts + " and " +
+          "space quota is :" + quotaInBytes);
+    }
+    if(volumeQuotaInBytes < quotaInBytes
+        || volumeQuotaInCounts < quotaInCounts) {
+      throw new IllegalArgumentException("Bucket quota should not be " +
+          "greater than volume quota : the bucket counts quota is set to:"
+          + quotaInCounts + " and space quota is set to:" + quotaInBytes
+          + ". But the volume counts quota is:" + volumeQuotaInCounts
+          + " and the volume space quota is:" + volumeQuotaInBytes);
+    }
+    return true;
   }
 }

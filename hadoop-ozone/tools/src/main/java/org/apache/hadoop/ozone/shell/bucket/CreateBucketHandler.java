@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.ozone.shell.bucket;
 
+import org.apache.hadoop.hdds.client.OzoneQuota;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.BucketArgs;
@@ -46,6 +47,14 @@ public class CreateBucketHandler extends BucketHandler {
           "false/unspecified indicates otherwise")
   private Boolean isGdprEnforced;
 
+  @Option(names = {"--spaceQuota", "-sq"},
+      description = "Quota in bytes of the newly created bucket (eg. 1GB)")
+  private String quotaInBytes;
+
+  @Option(names = {"--quota", "-q"},
+      description = "Key counts of the newly created bucket (eg. 5)")
+  private long quotaInCounts = OzoneConsts.QUOTA_RESET;
+
   /**
    * Executes create bucket.
    */
@@ -73,6 +82,13 @@ public class CreateBucketHandler extends BucketHandler {
             bekName);
       }
     }
+
+    if (quotaInBytes != null) {
+      bb.setQuotaInBytes(OzoneQuota.parseQuota(quotaInBytes,
+          quotaInCounts).getQuotaInBytes());
+    }
+
+    bb.setQuotaInCounts(quotaInCounts);
 
     String volumeName = address.getVolumeName();
     String bucketName = address.getBucketName();

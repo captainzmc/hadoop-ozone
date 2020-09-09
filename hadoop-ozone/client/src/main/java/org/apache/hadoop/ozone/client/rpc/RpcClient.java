@@ -440,6 +440,11 @@ public class RpcClient implements ClientProtocol {
     verifyBucketName(bucketName);
     Preconditions.checkNotNull(bucketArgs);
 
+    long quotaInCounts = bucketArgs.getQuotaInCounts() == 0 ?
+        OzoneConsts.QUOTA_RESET : bucketArgs.getQuotaInCounts();
+    long quotaInBytes = bucketArgs.getQuotaInBytes() == 0 ?
+        OzoneConsts.QUOTA_RESET : bucketArgs.getQuotaInBytes();
+
     Boolean isVersionEnabled = bucketArgs.getVersioning() == null ?
         Boolean.FALSE : bucketArgs.getVersioning();
     StorageType storageType = bucketArgs.getStorageType() == null ?
@@ -464,6 +469,8 @@ public class RpcClient implements ClientProtocol {
         .setStorageType(storageType)
         .setSourceVolume(bucketArgs.getSourceVolume())
         .setSourceBucket(bucketArgs.getSourceBucket())
+        .setQuotaInBytes(quotaInBytes)
+        .setQuotaInCounts(quotaInCounts)
         .setAcls(listOfAcls.stream().distinct().collect(Collectors.toList()));
 
     if (bek != null) {
@@ -599,6 +606,25 @@ public class RpcClient implements ClientProtocol {
   }
 
   @Override
+  public void setBucketQuota(String volumeName, String bucketName,
+      long quotaInCounts, long quotaInBytes) throws IOException {
+    HddsClientUtils.verifyResourceName(bucketName);
+    if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)
+        || (quotaInBytes <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)) {
+      throw new IllegalArgumentException("Invalid values for quota : " +
+          "counts quota is :" + quotaInCounts + " and " +
+          "space quota is :" + quotaInBytes);
+    }
+    OmBucketArgs.Builder builder = OmBucketArgs.newBuilder();
+    builder.setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setQuotaInBytes(quotaInBytes)
+        .setQuotaInCounts(quotaInCounts);
+    ozoneManagerClient.setBucketProperty(builder.build());
+
+  }
+
+  @Override
   public void deleteBucket(
       String volumeName, String bucketName) throws IOException {
     verifyVolumeName(volumeName);
@@ -632,7 +658,9 @@ public class RpcClient implements ClientProtocol {
         bucketInfo.getEncryptionKeyInfo() != null ? bucketInfo
             .getEncryptionKeyInfo().getKeyName() : null,
         bucketInfo.getSourceVolume(),
-        bucketInfo.getSourceBucket()
+        bucketInfo.getSourceBucket(),
+        bucketInfo.getQuotaInBytes(),
+        bucketInfo.getQuotaInCounts()
     );
   }
 
@@ -656,7 +684,9 @@ public class RpcClient implements ClientProtocol {
         bucket.getEncryptionKeyInfo() != null ? bucket
             .getEncryptionKeyInfo().getKeyName() : null,
         bucket.getSourceVolume(),
-        bucket.getSourceBucket()))
+        bucket.getSourceBucket(),
+        bucket.getQuotaInBytes(),
+        bucket.getQuotaInCounts()))
         .collect(Collectors.toList());
   }
 
