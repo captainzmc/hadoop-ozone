@@ -192,6 +192,10 @@ public class OMBucketCreateRequest extends OMClientRequest {
         throw new OMException("Bucket already exist", BUCKET_ALREADY_EXISTS);
       }
 
+      //Check quotaInBytes and quotaInCounts to update
+      checkQuotaBytesValid(omVolumeArgs, omBucketInfo);
+      checkQuotaCountsValid(omVolumeArgs, omBucketInfo);
+
       // Add objectID and updateID
       omBucketInfo.setObjectID(
           OMFileRequest.getObjIDFromTxId(transactionLogIndex));
@@ -296,5 +300,29 @@ public class OMBucketCreateRequest extends OMClientRequest {
         .setSuite(OMPBHelper.convert(
             CipherSuite.convert(metadata.getCipher())));
     return bekb.build();
+  }
+
+  public void checkQuotaBytesValid(OmVolumeArgs omVolumeArgs,
+                                      OmBucketInfo omBucketInfo) {
+    long volumeQuotaInBytes = omVolumeArgs.getQuotaInBytes();
+    long quotaInBytes = omBucketInfo.getQuotaInBytes();
+    if(volumeQuotaInBytes < quotaInBytes) {
+      throw new IllegalArgumentException("Bucket quota should not be " +
+          "greater than volume quota : the space quota is set to:" +
+          quotaInBytes + ". But the volume space quota is:" +
+          volumeQuotaInBytes);
+    }
+  }
+
+  public void checkQuotaCountsValid(OmVolumeArgs omVolumeArgs,
+      OmBucketInfo omBucketInfo) {
+    long volumeQuotaInCounts = omVolumeArgs.getQuotaInCounts();
+    long quotaInCounts = omBucketInfo.getQuotaInCounts();
+    if(volumeQuotaInCounts < quotaInCounts) {
+      throw new IllegalArgumentException("Bucket quota should not be " +
+          "greater than volume quota : the bucket counts quota is set to:"
+          + quotaInCounts + ". But the volume counts quota is:" +
+          volumeQuotaInCounts);
+    }
   }
 }

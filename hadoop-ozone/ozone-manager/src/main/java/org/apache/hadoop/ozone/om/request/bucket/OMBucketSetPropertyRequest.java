@@ -156,9 +156,15 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
       String volumeKey = omMetadataManager.getVolumeKey(volumeName);
       OmVolumeArgs omVolumeArgs = omMetadataManager.getVolumeTable()
           .get(volumeKey);
-      if (checkQuotaValid(omVolumeArgs, omBucketArgs)) {
+      if (checkQuotaBytesValid(omVolumeArgs, omBucketArgs)) {
         bucketInfoBuilder.setQuotaInBytes(omBucketArgs.getQuotaInBytes());
+      } else {
+        bucketInfoBuilder.setQuotaInBytes(dbBucketInfo.getQuotaInBytes());
+      }
+      if (checkQuotaCountsValid(omVolumeArgs, omBucketArgs)) {
         bucketInfoBuilder.setQuotaInCounts(omBucketArgs.getQuotaInCounts());
+      } else {
+        bucketInfoBuilder.setQuotaInCounts(dbBucketInfo.getQuotaInCounts());
       }
       bucketInfoBuilder.setCreationTime(dbBucketInfo.getCreationTime());
 
@@ -217,26 +223,36 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
     }
   }
 
-  public boolean checkQuotaValid(OmVolumeArgs omVolumeArgs,
+  public boolean checkQuotaBytesValid(OmVolumeArgs omVolumeArgs,
       OmBucketArgs omBucketArgs) {
     long volumeQuotaInBytes = omVolumeArgs.getQuotaInBytes();
-    long volumeQuotaInCounts = omVolumeArgs.getQuotaInCounts();
-    long quotaInCounts = omBucketArgs.getQuotaInCounts();
     long quotaInBytes = omBucketArgs.getQuotaInBytes();
 
-    if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)
-        || (quotaInBytes <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)) {
-      throw new IllegalArgumentException("Invalid values for quota : " +
-          "counts quota is :" + quotaInCounts + " and " +
-          "space quota is :" + quotaInBytes);
+    if ((quotaInBytes <= 0 && quotaInBytes != OzoneConsts.QUOTA_RESET)) {
+      return false;
     }
-    if(volumeQuotaInBytes < quotaInBytes
-        || volumeQuotaInCounts < quotaInCounts) {
+    if(volumeQuotaInBytes < quotaInBytes) {
+      throw new IllegalArgumentException("Bucket quota should not be " +
+          "greater than volume quota : the space quota is set to:" +
+          quotaInBytes + ". But the volume space quota is:" +
+          volumeQuotaInBytes);
+    }
+    return true;
+  }
+
+  public boolean checkQuotaCountsValid(OmVolumeArgs omVolumeArgs,
+      OmBucketArgs omBucketArgs) {
+    long volumeQuotaInCounts = omVolumeArgs.getQuotaInCounts();
+    long quotaInCounts = omBucketArgs.getQuotaInCounts();
+
+    if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)) {
+      return false;
+    }
+    if(volumeQuotaInCounts < quotaInCounts) {
       throw new IllegalArgumentException("Bucket quota should not be " +
           "greater than volume quota : the bucket counts quota is set to:"
-          + quotaInCounts + " and space quota is set to:" + quotaInBytes
-          + ". But the volume counts quota is:" + volumeQuotaInCounts
-          + " and the volume space quota is:" + volumeQuotaInBytes);
+          + quotaInCounts + ". But the volume counts quota is:" +
+          volumeQuotaInCounts);
     }
     return true;
   }

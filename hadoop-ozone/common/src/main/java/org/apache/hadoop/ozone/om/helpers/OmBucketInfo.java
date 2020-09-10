@@ -342,6 +342,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
       this.isVersionEnabled = false;
       this.storageType = StorageType.DISK;
       this.metadata = new HashMap<>();
+      this.quotaInBytes = OzoneConsts.QUOTA_RESET;
+      this.quotaInCounts = OzoneConsts.QUOTA_RESET;
     }
 
     public Builder setVolumeName(String volume) {
@@ -584,6 +586,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable {
         ", objectID=" + objectID +
         ", updateID=" + updateID +
         ", metadata=" + metadata +
+        ", quotaInBytes=" + quotaInBytes +
+        ", quotaInCounts=" + quotaInCounts +
         '}';
   }
 }
