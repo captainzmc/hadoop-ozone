@@ -337,12 +337,7 @@ public class RpcClient implements ClientProtocol {
   public void setVolumeQuota(String volumeName, long quotaInCounts,
       long quotaInBytes) throws IOException {
     HddsClientUtils.verifyResourceName(volumeName);
-    if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)
-        || (quotaInBytes <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)) {
-      throw new IllegalArgumentException("Invalid values for quota : " +
-          "counts quota is :" + quotaInCounts + " and " +
-          "space quota is :" + quotaInBytes);
-    }
+    verifyQuota(quotaInCounts, quotaInBytes);
     ozoneManagerClient.setQuota(volumeName, quotaInCounts, quotaInBytes);
 
   }
@@ -439,7 +434,11 @@ public class RpcClient implements ClientProtocol {
     verifyVolumeName(volumeName);
     verifyBucketName(bucketName);
     Preconditions.checkNotNull(bucketArgs);
+    verifyCountsQuota(bucketArgs.getQuotaInCounts());
+    verifySpaceQuota(bucketArgs.getQuotaInBytes());
 
+    // When creating buckets using the API, if the user does not specify quota,
+    // 0 is passed in by default, which should be set to -1.
     long quotaInCounts = bucketArgs.getQuotaInCounts() == 0 ?
         OzoneConsts.QUOTA_RESET : bucketArgs.getQuotaInCounts();
     long quotaInBytes = bucketArgs.getQuotaInBytes() == 0 ?
@@ -498,6 +497,30 @@ public class RpcClient implements ClientProtocol {
     } catch (IllegalArgumentException e) {
       throw new OMException(e.getMessage(),
           OMException.ResultCodes.INVALID_BUCKET_NAME);
+    }
+  }
+
+  private static void verifyCountsQuota(long quota) throws OMException {
+    if ((quota < OzoneConsts.QUOTA_RESET)) {
+      throw new IllegalArgumentException("Invalid values for quota : " +
+          "counts quota is :" + quota + ".");
+    }
+  }
+
+  private static void verifySpaceQuota(long quota) throws OMException {
+    if ((quota < OzoneConsts.QUOTA_RESET)) {
+      throw new IllegalArgumentException("Invalid values for quota : " +
+          "space quota is :" + quota + ".");
+    }
+  }
+
+  private static void verifyQuota(long quotaInCounts, long quotaInBytes)
+      throws OMException {
+    if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)
+        || (quotaInBytes <= 0 && quotaInBytes != OzoneConsts.QUOTA_RESET)) {
+      throw new IllegalArgumentException("Invalid values for quota : " +
+          "counts quota is :" + quotaInCounts + " and " +
+          "space quota is :" + quotaInBytes);
     }
   }
 
@@ -609,12 +632,7 @@ public class RpcClient implements ClientProtocol {
   public void setBucketQuota(String volumeName, String bucketName,
       long quotaInCounts, long quotaInBytes) throws IOException {
     HddsClientUtils.verifyResourceName(bucketName);
-    if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)
-        || (quotaInBytes <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)) {
-      throw new IllegalArgumentException("Invalid values for quota : " +
-          "counts quota is :" + quotaInCounts + " and " +
-          "space quota is :" + quotaInBytes);
-    }
+    verifyQuota(quotaInCounts, quotaInBytes);
     OmBucketArgs.Builder builder = OmBucketArgs.newBuilder();
     builder.setVolumeName(volumeName)
         .setBucketName(bucketName)
