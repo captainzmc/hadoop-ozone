@@ -47,7 +47,7 @@ public class CreateVolumeHandler extends VolumeHandler {
   @CommandLine.Mixin
   private QuotaOptions quotaOptions;
 
-  @Option(names = {"--bucketQuota"},
+  @Option(names = {"--bucket-quota"},
       description = "Bucket counts of the newly created volume (eg. 5)")
   private long quotaInCounts = OzoneConsts.QUOTA_RESET;
 
