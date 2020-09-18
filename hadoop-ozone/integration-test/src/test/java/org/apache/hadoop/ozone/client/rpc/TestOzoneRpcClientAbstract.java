@@ -109,6 +109,7 @@ import static org.apache.hadoop.hdds.client.ReplicationFactor.ONE;
 import static org.apache.hadoop.hdds.client.ReplicationType.STAND_ALONE;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConsts.GB;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NO_SUCH_MULTIPART_UPLOAD_ERROR;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.PARTIAL_RENAME;
@@ -270,13 +271,16 @@ public abstract class TestOzoneRpcClientAbstract {
   }
 
   @Test
-  public void testSetBucketQuota() throws IOException {
+  public void testSetAndClrQuota() throws IOException {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
     store.createVolume(volumeName);
     store.getVolume(volumeName).setQuota(OzoneQuota.parseQuota(
         "10GB", 10000L));
     store.getVolume(volumeName).createBucket(bucketName);
+    OzoneVolume ozoneVolume = store.getVolume(volumeName);
+    Assert.assertEquals(10 * GB, ozoneVolume.getQuotaInBytes());
+    Assert.assertEquals(10000L, ozoneVolume.getQuotaInCounts());
     OzoneBucket bucket = store.getVolume(volumeName).getBucket(bucketName);
 
     Assert.assertEquals(OzoneConsts.QUOTA_RESET, bucket.getQuotaInBytes());
@@ -287,6 +291,28 @@ public abstract class TestOzoneRpcClientAbstract {
     Assert.assertEquals(1024 * 1024 * 1024,
         ozoneBucket.getQuotaInBytes());
     Assert.assertEquals(1000L, ozoneBucket.getQuotaInCounts());
+
+    Boolean cleanFailed = false;
+    try {
+      store.getVolume(volumeName).cleanSpaceQuota();
+    } catch (OMException ex) {
+      cleanFailed = true;
+      GenericTestUtils.assertExceptionContains(
+          "bucket space quota in this volume should be cleaned first", ex);
+    }
+    Assert.assertTrue(cleanFailed);
+
+    ozoneBucket.cleanSpaceQuota();
+    ozoneBucket.cleanCountQuota();
+    OzoneBucket clrBucket = store.getVolume(volumeName).getBucket(bucketName);
+    Assert.assertEquals(OzoneConsts.QUOTA_RESET, clrBucket.getQuotaInBytes());
+    Assert.assertEquals(OzoneConsts.QUOTA_RESET, clrBucket.getQuotaInCounts());
+
+    store.getVolume(volumeName).cleanSpaceQuota();
+    store.getVolume(volumeName).cleanCountQuota();
+    OzoneVolume clrVolume = store.getVolume(volumeName);
+    Assert.assertEquals(OzoneConsts.QUOTA_RESET, clrVolume.getQuotaInBytes());
+    Assert.assertEquals(OzoneConsts.QUOTA_RESET, clrVolume.getQuotaInCounts());
   }
 
   @Test

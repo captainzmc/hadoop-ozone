@@ -314,6 +314,8 @@ enum Status {
 
     PARTIAL_RENAME = 65;
 
+    BUCKET_SPACE_QUOTA_NOT_RESET = 66;
+
 }
 
 /**

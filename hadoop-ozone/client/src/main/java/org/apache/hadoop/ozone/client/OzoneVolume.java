@@ -31,10 +31,13 @@ import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.WithMetadata;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+
+import static org.apache.hadoop.ozone.OzoneConsts.QUOTA_RESET;
 
 /**
  * A class that encapsulates OzoneVolume.
@@ -266,14 +269,47 @@ public class OzoneVolume extends WithMetadata {
   }
 
   /**
+   * Clean the space quota of the volume.
+   *
+   * @throws IOException
+   */
+  public void cleanSpaceQuota() throws IOException {
+    OzoneVolume ozoneVolume = proxy.getVolumeDetails(name);
+    Iterator bucketIter = ozoneVolume.listBuckets(null);
+    while (bucketIter.hasNext()) {
+      OzoneBucket nextBucket = (OzoneBucket) bucketIter.next();
+      if(nextBucket.getQuotaInBytes() != QUOTA_RESET) {
+        throw new OMException("bucket space quota in this volume should be " +
+            "cleaned first.",
+            OMException.ResultCodes.BUCKET_SPACE_QUOTA_NOT_RESET);
+      }
+    }
+    proxy.setVolumeQuota(name, QUOTA_RESET, ozoneVolume.getQuotaInCounts());
+    this.quotaInBytes = QUOTA_RESET;
+    this.quotaInCounts = ozoneVolume.getQuotaInCounts();
+  }
+
+  /**
+   * Clean the count quota of the volume.
+   *
+   * @throws IOException
+   */
+  public void cleanCountQuota() throws IOException {
+    OzoneVolume ozoneVolume = proxy.getVolumeDetails(name);
+    proxy.setVolumeQuota(name, ozoneVolume.getQuotaInBytes(), QUOTA_RESET);
+    this.quotaInBytes = ozoneVolume.getQuotaInBytes();
+    this.quotaInCounts = QUOTA_RESET;
+  }
+
+  /**
    * Sets/Changes the quota of this Volume.
    *
    * @param quota OzoneQuota Object that can be applied to storage volume.
    * @throws IOException
    */
   public void setQuota(OzoneQuota quota) throws IOException {
-    proxy.setVolumeQuota(name, quota.getQuotaInCounts(),
-        quota.getQuotaInBytes());
+    proxy.setVolumeQuota(name, quota.getQuotaInBytes(),
+        quota.getQuotaInCounts());
     this.quotaInBytes = quota.getQuotaInBytes();
     this.quotaInCounts = quota.getQuotaInCounts();
   }

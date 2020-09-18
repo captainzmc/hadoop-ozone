@@ -15,58 +15,45 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 package org.apache.hadoop.ozone.shell.bucket;
 
-import org.apache.hadoop.hdds.client.OzoneQuota;
-import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
-import org.apache.hadoop.ozone.shell.QuotaSetOptions;
+import org.apache.hadoop.ozone.shell.ClearSpaceQuotaOptions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
 
 import java.io.IOException;
 
 /**
- * set quota of the bucket.
+ * clean quota of the bucket.
  */
-@Command(name = "setquota",
-    description = "Set quota of the buckets")
-public class SetQuotaHandler extends BucketHandler {
+@Command(name = "clrquota",
+    description = "clean quota of the bucket")
+public class ClearQuotaHandler extends BucketHandler {
 
   @CommandLine.Mixin
-  private QuotaSetOptions quotaOptions;
+  private ClearSpaceQuotaOptions clrSpaceQuota;
 
-  @Option(names = {"--key-quota"},
-      description = "Key counts of the newly created bucket (eg. 5)")
-  private long quotaInCounts = OzoneConsts.QUOTA_RESET;
+  @CommandLine.Option(names = {"--key-quota"},
+      description = "clear count quota")
+  private boolean clrKeyQuota;
 
-  /**
-   * Executes create bucket.
-   */
   @Override
-  public void execute(OzoneClient client, OzoneAddress address)
+  protected void execute(OzoneClient client, OzoneAddress address)
       throws IOException {
-
     String volumeName = address.getVolumeName();
     String bucketName = address.getBucketName();
     OzoneBucket bucket = client.getObjectStore().getVolume(volumeName)
         .getBucket(bucketName);
-    long spaceQuota = bucket.getQuotaInBytes();
-    long countQuota = bucket.getQuotaInCounts();
 
-    if (quotaOptions.getQuotaInBytes() != null
-        && !quotaOptions.getQuotaInBytes().isEmpty()) {
-      spaceQuota = OzoneQuota.parseQuota(quotaOptions.getQuotaInBytes(),
-          quotaInCounts).getQuotaInBytes();
+    if (clrSpaceQuota.getClrSpaceQuota()) {
+      bucket.cleanSpaceQuota();
     }
-    if (quotaInCounts >= 0) {
-      countQuota = quotaInCounts;
+    if (clrKeyQuota) {
+      bucket.cleanCountQuota();
     }
-
-    bucket.setQuota(OzoneQuota.getOzoneQuota(spaceQuota, countQuota));
-    printObjectAsJson(bucket);
   }
 }

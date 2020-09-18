@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import static org.apache.hadoop.ozone.OzoneConsts.QUOTA_RESET;
+
 /**
  * A class that encapsulates OzoneBucket.
  */
@@ -404,6 +406,32 @@ public class OzoneBucket extends WithMetadata {
   public void setVersioning(Boolean newVersioning) throws IOException {
     proxy.setBucketVersioning(volumeName, name, newVersioning);
     versioning = newVersioning;
+  }
+
+  /**
+   * Clean the space quota of the bucket.
+   *
+   * @throws IOException
+   */
+  public void cleanSpaceQuota() throws IOException {
+    OzoneBucket ozoneBucket = proxy.getBucketDetails(volumeName, name);
+    proxy.setBucketQuota(volumeName, name, ozoneBucket.getQuotaInCounts(),
+        QUOTA_RESET);
+    quotaInBytes = QUOTA_RESET;
+    quotaInCounts = ozoneBucket.getQuotaInCounts();
+  }
+
+  /**
+   * Clean the count quota of the bucket.
+   *
+   * @throws IOException
+   */
+  public void cleanCountQuota() throws IOException {
+    OzoneBucket ozoneBucket = proxy.getBucketDetails(volumeName, name);
+    proxy.setBucketQuota(volumeName, name, QUOTA_RESET,
+        ozoneBucket.getQuotaInBytes());
+    quotaInBytes = ozoneBucket.getQuotaInBytes();
+    quotaInCounts = QUOTA_RESET;
   }
 
   /**

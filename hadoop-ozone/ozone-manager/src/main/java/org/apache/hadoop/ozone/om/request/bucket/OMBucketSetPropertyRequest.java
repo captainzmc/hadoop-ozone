@@ -109,10 +109,6 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
             volumeName, bucketName, null);
       }
 
-      // acquire lock.
-      acquiredBucketLock =  omMetadataManager.getLock().acquireWriteLock(
-          BUCKET_LOCK, volumeName, bucketName);
-
       String bucketKey = omMetadataManager.getBucketKey(volumeName, bucketName);
       OmBucketInfo dbBucketInfo =
           omMetadataManager.getBucketTable().get(bucketKey);
@@ -183,6 +179,10 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
 
       omBucketInfo = bucketInfoBuilder.build();
 
+      // acquire lock.
+      acquiredBucketLock =  omMetadataManager.getLock().acquireWriteLock(
+          BUCKET_LOCK, volumeName, bucketName);
+
       // Update table cache.
       omMetadataManager.getBucketTable().addCacheEntry(
           new CacheKey<>(bucketKey),
@@ -242,17 +242,10 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
 
   public boolean checkQuotaCountsValid(OmVolumeArgs omVolumeArgs,
       OmBucketArgs omBucketArgs) {
-    long volumeQuotaInCounts = omVolumeArgs.getQuotaInCounts();
     long quotaInCounts = omBucketArgs.getQuotaInCounts();
 
     if ((quotaInCounts <= 0 && quotaInCounts != OzoneConsts.QUOTA_RESET)) {
       return false;
-    }
-    if(volumeQuotaInCounts < quotaInCounts) {
-      throw new IllegalArgumentException("Bucket quota should not be " +
-          "greater than volume quota : the bucket counts quota is set to:"
-          + quotaInCounts + ". But the volume counts quota is:" +
-          volumeQuotaInCounts);
     }
     return true;
   }

@@ -24,7 +24,7 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.VolumeArgs;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
-import org.apache.hadoop.ozone.shell.QuotaOptions;
+import org.apache.hadoop.ozone.shell.QuotaSetOptions;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import picocli.CommandLine;
@@ -45,7 +45,7 @@ public class CreateVolumeHandler extends VolumeHandler {
   private String ownerName;
 
   @CommandLine.Mixin
-  private QuotaOptions quotaOptions;
+  private QuotaSetOptions quotaOptions;
 
   @Option(names = {"--bucket-quota"},
       description = "Bucket counts of the newly created volume (eg. 5)")

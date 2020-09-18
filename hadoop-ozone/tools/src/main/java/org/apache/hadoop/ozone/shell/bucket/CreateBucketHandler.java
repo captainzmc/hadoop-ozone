@@ -26,7 +26,7 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
 
-import org.apache.hadoop.ozone.shell.QuotaOptions;
+import org.apache.hadoop.ozone.shell.QuotaSetOptions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -50,7 +50,7 @@ public class CreateBucketHandler extends BucketHandler {
   private Boolean isGdprEnforced;
 
   @CommandLine.Mixin
-  private QuotaOptions quotaOptions;
+  private QuotaSetOptions quotaOptions;
 
   @Option(names = {"--key-quota"},
       description = "Key counts of the newly created bucket (eg. 5)")

@@ -22,7 +22,7 @@ import picocli.CommandLine;
 /**
  * Common options for 'quota' commands.
  */
-public class QuotaOptions {
+public class QuotaSetOptions {
 
   @CommandLine.Option(names = {"--space-quota"},
       description = "The maximum space quota can be used (eg. 1GB)")

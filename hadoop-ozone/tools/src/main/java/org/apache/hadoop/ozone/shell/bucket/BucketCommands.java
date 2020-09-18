@@ -47,7 +47,8 @@ import picocli.CommandLine.ParentCommand;
         AddAclBucketHandler.class,
         RemoveAclBucketHandler.class,
         GetAclBucketHandler.class,
-        SetAclBucketHandler.class
+        SetAclBucketHandler.class,
+        ClearQuotaHandler.class
     },
     mixinStandardHelpOptions = true,
     versionProvider = HddsVersionProvider.class)

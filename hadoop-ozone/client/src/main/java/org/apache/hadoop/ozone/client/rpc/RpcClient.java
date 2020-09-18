@@ -329,8 +329,8 @@ public class RpcClient implements ClientProtocol {
   }
 
   @Override
-  public void setVolumeQuota(String volumeName, long quotaInCounts,
-      long quotaInBytes) throws IOException {
+  public void setVolumeQuota(String volumeName, long quotaInBytes,
+      long quotaInCounts) throws IOException {
     HddsClientUtils.verifyResourceName(volumeName);
     verifyCountsQuota(quotaInCounts);
     verifySpaceQuota(quotaInBytes);

@@ -229,7 +229,9 @@ public class OMException extends IOException {
 
     NOT_SUPPORTED_OPERATION,
 
-    PARTIAL_RENAME
+    PARTIAL_RENAME,
+
+    BUCKET_SPACE_QUOTA_NOT_RESET
 
   }
 }

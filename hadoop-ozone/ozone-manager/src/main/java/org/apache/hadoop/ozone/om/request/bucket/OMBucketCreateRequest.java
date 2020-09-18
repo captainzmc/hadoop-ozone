@@ -187,9 +187,8 @@ public class OMBucketCreateRequest extends OMClientRequest {
         throw new OMException("Bucket already exist", BUCKET_ALREADY_EXISTS);
       }
 
-      //Check quotaInBytes and quotaInCounts to update
+      //Check quotaInBytes to update
       checkQuotaBytesValid(omVolumeArgs, omBucketInfo);
-      checkQuotaCountsValid(omVolumeArgs, omBucketInfo);
 
       acquiredVolumeLock =
           metadataManager.getLock().acquireReadLock(VOLUME_LOCK, volumeName);
@@ -314,15 +313,4 @@ public class OMBucketCreateRequest extends OMClientRequest {
     }
   }
 
-  public void checkQuotaCountsValid(OmVolumeArgs omVolumeArgs,
-      OmBucketInfo omBucketInfo) {
-    long volumeQuotaInCounts = omVolumeArgs.getQuotaInCounts();
-    long quotaInCounts = omBucketInfo.getQuotaInCounts();
-    if(volumeQuotaInCounts < quotaInCounts) {
-      throw new IllegalArgumentException("Bucket quota should not be " +
-          "greater than volume quota : the bucket counts quota is set to:"
-          + quotaInCounts + ". But the volume counts quota is:" +
-          volumeQuotaInCounts);
-    }
-  }
 }
