@@ -60,8 +60,6 @@ Test ozone shell
                     Run Keyword         Test key handling       ${protocol}       ${server}       ${volume}
                     Execute             ozone sh bucket delete ${protocol}${server}/${volume}/bb1
                     Execute             ozone sh volume delete ${protocol}${server}/${volume}
-
-Test ozone quota
     ${result} =     Execute             ozone sh volume create ${protocol}${server}/quotaVolume --space-quota 1TB --bucket-quota 100
                     Should not contain  ${result}       Failed
     ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotaVolume | jq -r '. | select(.name=="quotaVolume") | .quotaInBytes'
