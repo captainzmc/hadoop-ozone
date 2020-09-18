@@ -50,6 +50,11 @@ Test ozone shell
                     Should Be Equal     ${result}       10995116277760
     ${result} =     Execute             ozone sh bucket info ${protocol}${server}/${volume}/bb1 | jq -r '. | select(.name=="bb1") | .quotaInCounts'
                     Should Be Equal     ${result}       100
+                    Execute             ozone sh bucket setquota ${protocol}${server}/${volume}/bb1 --space-quota 100TB --key-quota 1000
+    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/${volume}/bb1 | jq -r '. | select(.name=="bb1") | .quotaInBytes'
+                    Should Be Equal     ${result}       109951162777600
+    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/${volume}/bb1 | jq -r '. | select(.name=="bb1") | .quotaInCounts'
+                    Should Be Equal     ${result}       1000
     ${result} =     Execute             ozone sh bucket list ${protocol}${server}/${volume}/ | jq -r '. | select(.name=="bb1") | .volumeName'
                     Should Be Equal     ${result}       ${volume}
                     Run Keyword         Test key handling       ${protocol}       ${server}       ${volume}
