@@ -34,8 +34,6 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
     .SetBucketPropertyRequest;
 
-import static org.apache.hadoop.ozone.OzoneConsts.GB;
-
 /**
  * Tests OMBucketSetPropertyRequest class which handles OMSetBucketProperty
  * request.
