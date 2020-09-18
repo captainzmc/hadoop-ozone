@@ -18,14 +18,10 @@
 package org.apache.hadoop.ozone.shell.bucket;
 
 import org.apache.hadoop.hdds.client.OzoneQuota;
-import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
-import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
-
 import org.apache.hadoop.ozone.shell.QuotaOptions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -34,20 +30,11 @@ import picocli.CommandLine.Option;
 import java.io.IOException;
 
 /**
- * create bucket handler.
+ * set quota of the bucket.
  */
-@Command(name = "create",
-    description = "creates a bucket in a given volume")
-public class CreateBucketHandler extends BucketHandler {
-
-  @Option(names = {"--bucketkey", "-k"},
-      description = "bucket encryption key name")
-  private String bekName;
-
-  @Option(names = {"--enforcegdpr", "-g"},
-      description = "if true, indicates GDPR enforced bucket, " +
-          "false/unspecified indicates otherwise")
-  private Boolean isGdprEnforced;
+@Command(name = "setquota",
+    description = "Set quota of the buckets")
+public class SetQuotaHandler extends BucketHandler {
 
   @CommandLine.Mixin
   private QuotaOptions quotaOptions;
@@ -63,43 +50,23 @@ public class CreateBucketHandler extends BucketHandler {
   public void execute(OzoneClient client, OzoneAddress address)
       throws IOException {
 
-    BucketArgs.Builder bb = new BucketArgs.Builder()
-        .setStorageType(StorageType.DEFAULT)
-        .setVersioning(false);
-
-    if (isGdprEnforced != null) {
-      bb.addMetadata(OzoneConsts.GDPR_FLAG, String.valueOf(isGdprEnforced));
-    }
-
-    if (bekName != null) {
-      if (!bekName.isEmpty()) {
-        bb.setBucketEncryptionKey(bekName);
-      } else {
-        throw new IllegalArgumentException("Bucket encryption key name must" +
-            " " + "be specified to enable bucket encryption!");
-      }
-      if (isVerbose()) {
-        out().printf("Bucket Encryption enabled with Key Name: %s%n",
-            bekName);
-      }
-    }
-
-    if (quotaOptions.getQuotaInBytes() != null) {
-      bb.setQuotaInBytes(OzoneQuota.parseQuota(quotaOptions.getQuotaInBytes(),
-          quotaInCounts).getQuotaInBytes());
-    }
-
-    bb.setQuotaInCounts(quotaInCounts);
-
     String volumeName = address.getVolumeName();
     String bucketName = address.getBucketName();
+    OzoneBucket bucket = client.getObjectStore().getVolume(volumeName)
+        .getBucket(bucketName);
+    long spaceQuota = bucket.getQuotaInBytes();
+    long countQuota = bucket.getQuotaInCounts();
 
-    OzoneVolume vol = client.getObjectStore().getVolume(volumeName);
-    vol.createBucket(bucketName, bb.build());
-
-    if (isVerbose()) {
-      OzoneBucket bucket = vol.getBucket(bucketName);
-      printObjectAsJson(bucket);
+    if (quotaOptions.getQuotaInBytes() != null
+        && !quotaOptions.getQuotaInBytes().isEmpty()) {
+      spaceQuota = OzoneQuota.parseQuota(quotaOptions.getQuotaInBytes(),
+          quotaInCounts).getQuotaInBytes();
     }
+    if (quotaInCounts >= 0) {
+      countQuota = quotaInCounts;
+    }
+
+    bucket.setQuota(OzoneQuota.getOzoneQuota(spaceQuota, countQuota));
+    printObjectAsJson(bucket);
   }
 }

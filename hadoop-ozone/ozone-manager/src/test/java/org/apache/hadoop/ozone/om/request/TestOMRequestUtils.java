@@ -65,8 +65,6 @@ import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
-import static org.apache.hadoop.ozone.OzoneConsts.GB;
-
 /**
  * Helper class to test OMClientRequest classes.
  */
@@ -285,7 +283,7 @@ public final class TestOMRequestUtils {
     OmVolumeArgs omVolumeArgs =
         OmVolumeArgs.newBuilder().setCreationTime(Time.now())
             .setVolume(volumeName).setAdminName(ownerName)
-            .setOwnerName(ownerName).setQuotaInBytes(1024 * GB)
+            .setOwnerName(ownerName).setQuotaInBytes(Long.MAX_VALUE)
             .setQuotaInCounts(10000L).build();
     omMetadataManager.getVolumeTable().put(
         omMetadataManager.getVolumeKey(volumeName), omVolumeArgs);

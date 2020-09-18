@@ -315,7 +315,7 @@ public abstract class TestOzoneRpcClientAbstract {
     // The setting value cannot be greater than LONG.MAX_VALUE BYTES.
     try {
       store.getVolume(volumeName).getBucket(bucketName).setQuota(
-          OzoneQuota.parseQuota("9999999999999GB", 100L));
+          OzoneQuota.parseQuota(Long.MAX_VALUE + 1 + "BYTES", 100L));
     } catch (IllegalArgumentException ex) {
       GenericTestUtils.assertExceptionContains(
           "Invalid values for quota", ex);
@@ -363,7 +363,7 @@ public abstract class TestOzoneRpcClientAbstract {
     // The setting value cannot be greater than LONG.MAX_VALUE BYTES.
     try {
       store.getVolume(volumeName).setQuota(OzoneQuota.parseQuota(
-          "9999999999999GB", 1000L));
+          Long.MAX_VALUE + 1 + "BYTES", 1000L));
     } catch (IllegalArgumentException ex) {
       GenericTestUtils.assertExceptionContains(
           "Invalid values for quota", ex);

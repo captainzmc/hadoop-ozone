@@ -173,11 +173,6 @@ public class OMBucketCreateRequest extends OMClientRequest {
             volumeName, bucketName, null);
       }
 
-      acquiredVolumeLock =
-          metadataManager.getLock().acquireReadLock(VOLUME_LOCK, volumeName);
-      acquiredBucketLock = metadataManager.getLock().acquireWriteLock(
-          BUCKET_LOCK, volumeName, bucketName);
-
       OmVolumeArgs omVolumeArgs =
           metadataManager.getVolumeTable().getReadCopy(volumeKey);
       //Check if the volume exists
@@ -195,6 +190,11 @@ public class OMBucketCreateRequest extends OMClientRequest {
       //Check quotaInBytes and quotaInCounts to update
       checkQuotaBytesValid(omVolumeArgs, omBucketInfo);
       checkQuotaCountsValid(omVolumeArgs, omBucketInfo);
+
+      acquiredVolumeLock =
+          metadataManager.getLock().acquireReadLock(VOLUME_LOCK, volumeName);
+      acquiredBucketLock = metadataManager.getLock().acquireWriteLock(
+          BUCKET_LOCK, volumeName, bucketName);
 
       // Add objectID and updateID
       omBucketInfo.setObjectID(
@@ -303,7 +303,7 @@ public class OMBucketCreateRequest extends OMClientRequest {
   }
 
   public void checkQuotaBytesValid(OmVolumeArgs omVolumeArgs,
-                                      OmBucketInfo omBucketInfo) {
+      OmBucketInfo omBucketInfo) {
     long volumeQuotaInBytes = omVolumeArgs.getQuotaInBytes();
     long quotaInBytes = omBucketInfo.getQuotaInBytes();
     if(volumeQuotaInBytes < quotaInBytes) {
