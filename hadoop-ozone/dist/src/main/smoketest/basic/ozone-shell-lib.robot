@@ -58,44 +58,20 @@ Test ozone shell
     ${result} =     Execute             ozone sh bucket list ${protocol}${server}/${volume}/ | jq -r '. | select(.name=="bb1") | .volumeName'
                     Should Be Equal     ${result}       ${volume}
                     Run Keyword         Test key handling       ${protocol}       ${server}       ${volume}
+                    Execute             ozone sh bucket clrquota --space-quota ${protocol}${server}/${volume}/bb1
+    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/${volume}/bb1 | jq -r '. | select(.name=="bb1") | .quotaInBytes'
+                    Should Be Equal     ${result}       -1
+                    Execute             ozone sh bucket clrquota --key-quota ${protocol}${server}/${volume}/bb1
+    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/${volume}/bb1 | jq -r '. | select(.name=="bb1") | .quotaInCounts'
+                    Should Be Equal     ${result}       -1
+                    Execute             ozone sh volume clrquota --space-quota ${protocol}${server}/${volume}
+    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.name=="${volume}") | .quotaInBytes'
+                    Should Be Equal     ${result}       -1
+                    Execute             ozone sh volume clrquota --bucket-quota ${protocol}${server}/${volume}
+    ${result} =     Execute             ozone sh volume info ${protocol}${server}/${volume} | jq -r '. | select(.name=="${volume}") | .quotaInCounts'
+                    Should Be Equal     ${result}       -1
                     Execute             ozone sh bucket delete ${protocol}${server}/${volume}/bb1
                     Execute             ozone sh volume delete ${protocol}${server}/${volume}
-                    Execute             ozone sh bucket delete ${protocol}${server}/quotavolume/quotabucket
-                    Execute             ozone sh volume delete ${protocol}${server}/quotavolume
-    ${result} =     Execute             ozone sh volume create ${protocol}${server}/quotavolume --space-quota 1TB --bucket-quota 100
-                    Should not contain  ${result}       Failed
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInBytes'
-                    Should Be Equal     ${result}       1099511627776
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInCounts'
-                    Should Be Equal     ${result}       100
-    ${result} =     Execute             ozone sh volume setquota ${protocol}${server}/quotavolume --space-quota 100TB --bucket-quota 10000
-                    Should not contain  ${result}       Failed
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInBytes'
-                    Should Be Equal     ${result}       109951162777600
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInCounts'
-                    Should Be Equal     ${result}       10000
-                    Execute             ozone sh bucket create ${protocol}${server}/quotavolume/quotabucket --space-quota 10TB --key-quota 1000
-    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInBytes'
-                    Should Be Equal     ${result}       10995116277760
-    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInCounts'
-                    Should Be Equal     ${result}       1000
-                    Execute             ozone sh bucket setquota ${protocol}${server}/quotavolume/quotabucket --space-quota 1TB --key-quota 100
-    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInBytes'
-                    Should Be Equal     ${result}       1099511627776
-    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInCounts'
-                    Should Be Equal     ${result}       100
-                    Execute             ozone sh bucket clrquota --space-quota ${protocol}${server}/quotavolume/quotabucket
-    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInBytes'
-                    Should Be Equal     ${result}       -1
-                    Execute             ozone sh bucket clrquota --key-quota ${protocol}${server}/quotavolume/quotabucket
-    ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInCounts'
-                    Should Be Equal     ${result}       -1
-                    Execute             ozone sh volume clrquota --space-quota ${protocol}${server}/quotavolume
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInBytes'
-                    Should Be Equal     ${result}       -1
-                    Execute             ozone sh volume clrquota --bucket-quota ${protocol}${server}/quotavolume
-    ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInCounts'
-                    Should Be Equal     ${result}       -1
 
 
 
