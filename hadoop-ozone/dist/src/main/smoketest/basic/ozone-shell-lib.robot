@@ -60,6 +60,8 @@ Test ozone shell
                     Run Keyword         Test key handling       ${protocol}       ${server}       ${volume}
                     Execute             ozone sh bucket delete ${protocol}${server}/${volume}/bb1
                     Execute             ozone sh volume delete ${protocol}${server}/${volume}
+                    Execute             ozone sh bucket delete ${protocol}${server}/quotavolume/quotabucket
+                    Execute             ozone sh volume delete ${protocol}${server}/quotavolume
     ${result} =     Execute             ozone sh volume create ${protocol}${server}/quotavolume --space-quota 1TB --bucket-quota 100
                     Should not contain  ${result}       Failed
     ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInBytes'
@@ -94,8 +96,6 @@ Test ozone shell
                     Execute             ozone sh volume clrquota --bucket-quota ${protocol}${server}/quotavolume
     ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInCounts'
                     Should Be Equal     ${result}       -1
-                    Execute             ozone sh bucket delete ${protocol}${server}/quotavolume/quotabucket
-                    Execute             ozone sh volume delete ${protocol}${server}/quotavolume
 
 
 
