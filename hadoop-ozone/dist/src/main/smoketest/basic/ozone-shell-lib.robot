@@ -66,7 +66,7 @@ Test ozone shell
                     Should Be Equal     ${result}       1099511627776
     ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInCounts'
                     Should Be Equal     ${result}       100
-    ${result} =     Execute             ozone sh volume setquota ${protocol}${server}/quotavolume --space-quota 100TB --key-quota 10000
+    ${result} =     Execute             ozone sh volume setquota ${protocol}${server}/quotavolume --space-quota 100TB --bucket-quota 10000
                     Should not contain  ${result}       Failed
     ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInBytes'
                     Should Be Equal     ${result}       109951162777600
