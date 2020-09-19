@@ -85,7 +85,7 @@ Test ozone shell
                     Execute             ozone sh bucket clrquota --space-quota ${protocol}${server}/quotavolume/quotabucket
     ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInBytes'
                     Should Be Equal     ${result}       -1
-                    Execute             ozone sh bucket clrquota --key-quota ${protocol}${server}/quotavolume/quotaBucket
+                    Execute             ozone sh bucket clrquota --key-quota ${protocol}${server}/quotavolume/quotabucket
     ${result} =     Execute             ozone sh bucket info ${protocol}${server}/quotavolume/quotabucket | jq -r '. | select(.name=="quotabucket") | .quotaInCounts'
                     Should Be Equal     ${result}       -1
                     Execute             ozone sh volume clrquota --space-quota ${protocol}${server}/quotavolume
@@ -94,6 +94,8 @@ Test ozone shell
                     Execute             ozone sh volume clrquota --bucket-quota ${protocol}${server}/quotavolume
     ${result} =     Execute             ozone sh volume info ${protocol}${server}/quotavolume | jq -r '. | select(.name=="quotavolume") | .quotaInCounts'
                     Should Be Equal     ${result}       -1
+                    Execute             ozone sh bucket delete ${protocol}${server}/quotavolume/quotabucket
+                    Execute             ozone sh volume delete ${protocol}${server}/quotavolume
 
 
 
