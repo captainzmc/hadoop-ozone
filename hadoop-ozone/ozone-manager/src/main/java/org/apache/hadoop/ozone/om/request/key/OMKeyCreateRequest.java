@@ -313,6 +313,13 @@ public class OMKeyCreateRequest extends OMKeyRequest {
 
       omBucketInfo.getUsedBytes().add(preAllocatedSpace);
       OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+      // We cannot acquire VOLUME_LOCK while holding BUCKET_LOCK. So
+      // release BUCKET_LOCK first.
+      if (acquireLock) {
+        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+            bucketName);
+        acquireLock = false;
+      }
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
@@ -323,6 +330,8 @@ public class OMKeyCreateRequest extends OMKeyRequest {
         acquireVolumeLock = false;
       }
 
+      acquireLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+          volumeName, bucketName);
       // Prepare response
       omResponse.setCreateKeyResponse(CreateKeyResponse.newBuilder()
           .setKeyInfo(omKeyInfo.getProtobuf())

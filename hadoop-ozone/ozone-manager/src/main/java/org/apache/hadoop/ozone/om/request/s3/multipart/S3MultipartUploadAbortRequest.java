@@ -155,6 +155,13 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
       }
       omBucketInfo.getUsedBytes().add(-quotaReleased);
       OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+      // We cannot acquire VOLUME_LOCK while holding BUCKET_LOCK. So
+      // release BUCKET_LOCK first.
+      if (acquiredLock) {
+        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+            bucketName);
+        acquiredLock = false;
+      }
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
@@ -164,7 +171,8 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
         acquireVolumeLock = false;
       }
-
+      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+          volumeName, bucketName);
       // Update cache of openKeyTable and multipartInfo table.
       // No need to add the cache entries to delete table, as the entries
       // in delete table are not used by any read/write operations.

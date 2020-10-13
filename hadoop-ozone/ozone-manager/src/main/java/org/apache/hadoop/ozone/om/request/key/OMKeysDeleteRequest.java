@@ -173,6 +173,13 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
       // update usedBytes atomically.
       omBucketInfo.getUsedBytes().add(-quotaReleased);
       OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+      // We cannot acquire VOLUME_LOCK while holding BUCKET_LOCK. So
+      // release BUCKET_LOCK first.
+      if (acquiredLock) {
+        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
+            bucketName);
+        acquiredLock = false;
+      }
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
@@ -182,6 +189,8 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
         acquireVolumeLock = false;
       }
+      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+          volumeName, bucketName);
 
       omClientResponse = new OMKeysDeleteResponse(omResponse
           .setDeleteKeysResponse(DeleteKeysResponse.newBuilder()
