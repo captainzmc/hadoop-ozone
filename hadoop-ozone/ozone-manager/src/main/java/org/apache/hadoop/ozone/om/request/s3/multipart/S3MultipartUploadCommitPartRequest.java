@@ -33,19 +33,13 @@ import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerDoubleBufferHelper;
 import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
-import org.apache.hadoop.ozone.om.response.s3.multipart
-    .S3MultipartUploadCommitPartResponse;
+import org.apache.hadoop.ozone.om.response.s3.multipart.S3MultipartUploadCommitPartResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .KeyArgs;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .MultipartCommitUploadPartRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .MultipartCommitUploadPartResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
-    .OMResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartCommitUploadPartRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartCommitUploadPartResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
@@ -58,6 +52,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
  * Handle Multipart upload commit upload part file.
@@ -104,6 +99,7 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
     ozoneManager.getMetrics().incNumCommitMultipartUploadParts();
 
     boolean acquiredLock = false;
+    boolean acquireVolumeLock = false;
 
     IOException exception = null;
     String partName = null;
@@ -222,8 +218,17 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
       // be subtracted.
       long correctedSpace = omKeyInfo.getDataSize() * factor -
           keyArgs.getKeyLocationsList().size() * scmBlockSize * factor;
-      omVolumeArgs.getUsedBytes().add(correctedSpace);
       omBucketInfo.getUsedBytes().add(correctedSpace);
+      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
+      omVolumeArgs.getUsedBytes().add(correctedSpace);
+      OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        acquireVolumeLock = false;
+      }
 
       omResponse.setCommitMultiPartUploadResponse(
           MultipartCommitUploadPartResponse.newBuilder()
@@ -231,7 +236,7 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
       omClientResponse = new S3MultipartUploadCommitPartResponse(
           omResponse.build(), multipartKey, openKey,
           multipartKeyInfo, oldPartKeyInfo, omKeyInfo,
-          ozoneManager.isRatisEnabled(), omVolumeArgs, omBucketInfo);
+          ozoneManager.isRatisEnabled(), copyVolumeArgs, copyBucketInfo);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -247,6 +252,9 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
       if (acquiredLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK,
             volumeName, bucketName);
+      }
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }
     }
 

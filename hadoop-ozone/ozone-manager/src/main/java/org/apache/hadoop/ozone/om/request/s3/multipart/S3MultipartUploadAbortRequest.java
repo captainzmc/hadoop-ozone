@@ -38,8 +38,7 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
 import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
-import org.apache.hadoop.ozone.om.response.s3.multipart
-    .S3MultipartUploadAbortResponse;
+import org.apache.hadoop.ozone.om.response.s3.multipart.S3MultipartUploadAbortResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartUploadAbortRequest;
@@ -52,6 +51,7 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
  * Handles Abort of multipart upload request.
@@ -99,6 +99,7 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
     ozoneManager.getMetrics().incNumAbortMultipartUploads();
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
     boolean acquiredLock = false;
+    boolean acquireVolumeLock = false;
     IOException exception = null;
     OmMultipartKeyInfo multipartKeyInfo = null;
     String multipartKey = null;
@@ -152,8 +153,17 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
         quotaReleased +=
             iterPartKeyInfo.getPartKeyInfo().getDataSize() * keyFactor;
       }
-      omVolumeArgs.getUsedBytes().add(-quotaReleased);
       omBucketInfo.getUsedBytes().add(-quotaReleased);
+      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
+      omVolumeArgs.getUsedBytes().add(-quotaReleased);
+      OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        acquireVolumeLock = false;
+      }
 
       // Update cache of openKeyTable and multipartInfo table.
       // No need to add the cache entries to delete table, as the entries
@@ -169,7 +179,7 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
           omResponse.setAbortMultiPartUploadResponse(
               MultipartUploadAbortResponse.newBuilder()).build(),
           multipartKey, multipartKeyInfo, ozoneManager.isRatisEnabled(),
-          omVolumeArgs, omBucketInfo);
+          copyVolumeArgs, copyBucketInfo);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -184,6 +194,9 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
       if (acquiredLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK,
             volumeName, bucketName);
+      }
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }
     }
 

@@ -65,6 +65,7 @@ import org.apache.hadoop.hdds.utils.UniqueId;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryResult.DIRECTORY_EXISTS;
 import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryResult.FILE_EXISTS_IN_GIVENPATH;
 
@@ -202,6 +203,7 @@ public class OMKeyCreateRequest extends OMKeyRequest {
     final List< OmKeyLocationInfo > locations = new ArrayList<>();
 
     boolean acquireLock = false;
+    boolean acquireVolumeLock = false;
     OMClientResponse omClientResponse = null;
     OMResponse.Builder omResponse = OmResponseUtil.getOMResponseBuilder(
         getOmRequest());
@@ -309,8 +311,17 @@ public class OMKeyCreateRequest extends OMKeyRequest {
           new CacheKey<>(dbOpenKeyName),
           new CacheValue<>(Optional.of(omKeyInfo), trxnLogIndex));
 
-      omVolumeArgs.getUsedBytes().add(preAllocatedSpace);
       omBucketInfo.getUsedBytes().add(preAllocatedSpace);
+      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
+      omVolumeArgs.getUsedBytes().add(preAllocatedSpace);
+      OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        acquireVolumeLock = false;
+      }
 
       // Prepare response
       omResponse.setCreateKeyResponse(CreateKeyResponse.newBuilder()
@@ -319,7 +330,8 @@ public class OMKeyCreateRequest extends OMKeyRequest {
           .setOpenVersion(openVersion).build())
           .setCmdType(Type.CreateKey);
       omClientResponse = new OMKeyCreateResponse(omResponse.build(),
-          omKeyInfo, missingParentInfos, clientID, omVolumeArgs, omBucketInfo);
+          omKeyInfo, missingParentInfos, clientID, copyVolumeArgs,
+          copyBucketInfo);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -335,6 +347,9 @@ public class OMKeyCreateRequest extends OMKeyRequest {
       if (acquireLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
+      }
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }
     }
 
