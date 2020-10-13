@@ -52,6 +52,7 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
  * Handles DeleteKey request.
@@ -107,6 +108,7 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
     IOException exception = null;
     boolean acquiredLock = false;
+    boolean acquireVolumeLock = false;
     OMClientResponse omClientResponse = null;
     Result result = null;
     OmVolumeArgs omVolumeArgs = null;
@@ -148,8 +150,17 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
 
       long quotaReleased = sumBlockLengths(omKeyInfo);
       // update usedBytes atomically.
-      omVolumeArgs.getUsedBytes().add(-quotaReleased);
       omBucketInfo.getUsedBytes().add(-quotaReleased);
+      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
+      omVolumeArgs.getUsedBytes().add(-quotaReleased);
+      OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        acquireVolumeLock = false;
+      }
 
       // No need to add cache entries to delete table. As delete table will
       // be used by DeleteKeyService only, not used for any client response
@@ -158,7 +169,8 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
 
       omClientResponse = new OMKeyDeleteResponse(omResponse
           .setDeleteKeyResponse(DeleteKeyResponse.newBuilder()).build(),
-          omKeyInfo, ozoneManager.isRatisEnabled(), omVolumeArgs, omBucketInfo);
+          omKeyInfo, ozoneManager.isRatisEnabled(), copyVolumeArgs,
+          copyBucketInfo);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -172,6 +184,9 @@ public class OMKeyDeleteRequest extends OMKeyRequest {
       if (acquiredLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
+      }
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }
     }
 

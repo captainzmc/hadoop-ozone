@@ -59,6 +59,7 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
  * Handles CommitKey request.
@@ -127,6 +128,7 @@ public class OMKeyCommitRequest extends OMKeyRequest {
     OmBucketInfo omBucketInfo = null;
     OMClientResponse omClientResponse = null;
     boolean bucketLockAcquired = false;
+    boolean acquireVolumeLock = false;
     Result result;
 
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
@@ -203,11 +205,20 @@ public class OMKeyCommitRequest extends OMKeyRequest {
       // be subtracted.
       long correctedSpace = omKeyInfo.getDataSize() * factor -
           locationInfoList.size() * scmBlockSize * factor;
-      omVolumeArgs.getUsedBytes().add(correctedSpace);
       omBucketInfo.getUsedBytes().add(correctedSpace);
+      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
+      omVolumeArgs.getUsedBytes().add(correctedSpace);
+      OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        acquireVolumeLock = false;
+      }
 
       omClientResponse = new OMKeyCommitResponse(omResponse.build(),
-          omKeyInfo, dbOzoneKey, dbOpenKey, omVolumeArgs, omBucketInfo);
+          omKeyInfo, dbOzoneKey, dbOpenKey, copyVolumeArgs, copyBucketInfo);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
@@ -222,6 +233,9 @@ public class OMKeyCommitRequest extends OMKeyRequest {
       if(bucketLockAcquired) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
+      }
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }
     }
 

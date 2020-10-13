@@ -56,6 +56,7 @@ import static org.apache.hadoop.ozone.OzoneConsts.UNDELETED_KEYS_LIST;
 import static org.apache.hadoop.ozone.OzoneConsts.VOLUME;
 import static org.apache.hadoop.ozone.audit.OMAction.DELETE_KEYS;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.PARTIAL_DELETE;
 
@@ -105,6 +106,7 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
 
     boolean acquiredLock = false;
+    boolean acquireVolumeLock = false;
 
     int indexFailed = 0;
     int length = deleteKeys.size();
@@ -171,15 +173,24 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
         quotaReleased += sumBlockLengths(omKeyInfo);
       }
       // update usedBytes atomically.
-      omVolumeArgs.getUsedBytes().add(-quotaReleased);
       omBucketInfo.getUsedBytes().add(-quotaReleased);
+      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
+      omVolumeArgs.getUsedBytes().add(-quotaReleased);
+      OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+        acquireVolumeLock = false;
+      }
 
       omClientResponse = new OMKeysDeleteResponse(omResponse
           .setDeleteKeysResponse(DeleteKeysResponse.newBuilder()
               .setStatus(deleteStatus).setUnDeletedKeys(unDeletedKeys))
           .setStatus(deleteStatus ? OK : PARTIAL_DELETE)
           .setSuccess(deleteStatus).build(), omKeyInfoList,
-          ozoneManager.isRatisEnabled(), omVolumeArgs, omBucketInfo);
+          ozoneManager.isRatisEnabled(), copyVolumeArgs, copyBucketInfo);
 
       result = Result.SUCCESS;
 
@@ -200,12 +211,15 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
       omClientResponse = new OMKeysDeleteResponse(omResponse.build());
 
     } finally {
+      addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
+          omDoubleBufferHelper);
       if (acquiredLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
       }
-      addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
-          omDoubleBufferHelper);
+      if (acquireVolumeLock) {
+        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
+      }
     }
 
     addDeletedKeys(auditMap, deleteKeys, unDeletedKeys.getKeysList());
