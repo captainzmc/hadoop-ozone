@@ -207,6 +207,13 @@ public class OMKeyCommitRequest extends OMKeyRequest {
           locationInfoList.size() * scmBlockSize * factor;
       omBucketInfo.getUsedBytes().add(correctedSpace);
       OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+      // We cannot acquire VOLUME_LOCK while holding BUCKET_LOCK. So
+      // release BUCKET_LOCK first.
+      if (bucketLockAcquired) {
+        omMetadataManager.getLock().releaseLock(BUCKET_LOCK, volumeName,
+            bucketName);
+        bucketLockAcquired = false;
+      }
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
@@ -216,6 +223,8 @@ public class OMKeyCommitRequest extends OMKeyRequest {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
         acquireVolumeLock = false;
       }
+      bucketLockAcquired = omMetadataManager.getLock().acquireLock(BUCKET_LOCK,
+              volumeName, bucketName);
 
       omClientResponse = new OMKeyCommitResponse(omResponse.build(),
           omKeyInfo, dbOzoneKey, dbOpenKey, copyVolumeArgs, copyBucketInfo);
