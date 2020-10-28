@@ -23,7 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.LongAdder;
 
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -47,7 +46,7 @@ public final class OmVolumeArgs extends WithObjectID implements Auditable {
   private long quotaInBytes;
   private long quotaInCounts;
   private final OmOzoneAclMap aclMap;
-  private final LongAdder usedBytes = new LongAdder();
+  private long usedBytes;
 
   /**
    * Private constructor, constructed via builder.
@@ -76,7 +75,7 @@ public final class OmVolumeArgs extends WithObjectID implements Auditable {
     this.quotaInBytes = quotaInBytes;
     this.quotaInCounts = quotaInCounts;
     this.metadata = metadata;
-    this.usedBytes.add(usedBytes);
+    this.usedBytes = usedBytes;
     this.aclMap = aclMap;
     this.creationTime = creationTime;
     this.modificationTime = modificationTime;
@@ -177,8 +176,12 @@ public final class OmVolumeArgs extends WithObjectID implements Auditable {
     return aclMap;
   }
 
-  public LongAdder getUsedBytes() {
+  public long getUsedBytes() {
     return usedBytes;
+  }
+
+  public void setUsedBytes(long usedBytes) {
+    this.usedBytes = this.usedBytes + usedBytes;
   }
 
   /**
@@ -359,7 +362,7 @@ public final class OmVolumeArgs extends WithObjectID implements Auditable {
         .setModificationTime(modificationTime)
         .setObjectID(objectID)
         .setUpdateID(updateID)
-        .setUsedBytes(usedBytes.sum())
+        .setUsedBytes(usedBytes)
         .build();
   }
 
@@ -390,7 +393,7 @@ public final class OmVolumeArgs extends WithObjectID implements Auditable {
         ", owner='" + ownerName + '\'' +
         ", creationTime='" + creationTime + '\'' +
         ", quotaInBytes='" + quotaInBytes + '\'' +
-        ", usedBytes='" + usedBytes.sum() + '\'' +
+        ", usedBytes='" + usedBytes + '\'' +
         '}';
   }
 
@@ -406,7 +409,7 @@ public final class OmVolumeArgs extends WithObjectID implements Auditable {
     OmOzoneAclMap cloneAclMap = aclMap.copyObject();
 
     return new OmVolumeArgs(adminName, ownerName, volume, quotaInBytes,
-        quotaInCounts, cloneMetadata, usedBytes.sum(), cloneAclMap,
+        quotaInCounts, cloneMetadata, usedBytes, cloneAclMap,
         creationTime, modificationTime, objectID, updateID);
   }
 }

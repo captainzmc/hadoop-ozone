@@ -578,7 +578,7 @@ public abstract class OMKeyRequest extends OMClientRequest {
   protected void checkVolumeQuotaInBytes(OmVolumeArgs omVolumeArgs,
       long allocateSize) throws IOException {
     if (omVolumeArgs.getQuotaInBytes() > OzoneConsts.QUOTA_RESET) {
-      long usedBytes = omVolumeArgs.getUsedBytes().sum();
+      long usedBytes = omVolumeArgs.getUsedBytes();
       long quotaInBytes = omVolumeArgs.getQuotaInBytes();
       if (quotaInBytes - usedBytes < allocateSize) {
         throw new OMException("The DiskSpace quota of volume:"
