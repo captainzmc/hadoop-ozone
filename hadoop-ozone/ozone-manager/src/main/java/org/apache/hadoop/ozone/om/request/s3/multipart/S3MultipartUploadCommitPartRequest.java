@@ -230,7 +230,7 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      omVolumeArgs.getUsedBytes().add(correctedSpace);
+      omVolumeArgs.setUsedBytes(correctedSpace);
       OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
       if (acquireVolumeLock) {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);

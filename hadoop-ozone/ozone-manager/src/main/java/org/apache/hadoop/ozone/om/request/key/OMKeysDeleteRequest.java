@@ -183,7 +183,7 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      omVolumeArgs.getUsedBytes().add(-quotaReleased);
+      omVolumeArgs.setUsedBytes(-quotaReleased);
       OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
       if (acquireVolumeLock) {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);

@@ -323,7 +323,7 @@ public class OMKeyCreateRequest extends OMKeyRequest {
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      omVolumeArgs.getUsedBytes().add(preAllocatedSpace);
+      omVolumeArgs.setUsedBytes(preAllocatedSpace);
       OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
       if (acquireVolumeLock) {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
