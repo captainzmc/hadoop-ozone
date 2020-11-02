@@ -50,6 +50,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
@@ -97,6 +98,7 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
 
     ozoneManager.getMetrics().incNumAbortMultipartUploads();
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
+    boolean acquiredLock = false;
     boolean acquireVolumeLock = false;
     IOException exception = null;
     OmMultipartKeyInfo multipartKeyInfo = null;
@@ -115,7 +117,9 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
       // TODO to support S3 ACL later.
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-
+      acquiredLock =
+          omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
+              volumeName, bucketName);
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
       multipartKey = omMetadataManager.getMultipartKey(
@@ -181,6 +185,10 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
+      if (acquiredLock) {
+        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK,
+            volumeName, bucketName);
+      }
       if (acquireVolumeLock) {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }
