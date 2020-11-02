@@ -51,7 +51,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
@@ -98,7 +97,6 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
     ozoneManager.getMetrics().incNumCommitMultipartUploadParts();
 
-    boolean acquiredLock = false;
     boolean acquireVolumeLock = false;
 
     IOException exception = null;
@@ -114,14 +112,16 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
     Result result = null;
     OmVolumeArgs omVolumeArgs = null;
     OmBucketInfo omBucketInfo = null;
+    OmVolumeArgs copyVolumeArgs = null;
+    OmBucketInfo copyBucketInfo = null;
     try {
       keyArgs = resolveBucketLink(ozoneManager, keyArgs, auditMap);
       volumeName = keyArgs.getVolumeName();
       bucketName = keyArgs.getBucketName();
 
       // TODO to support S3 ACL later.
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
 
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
@@ -218,26 +218,11 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
       // be subtracted.
       long correctedSpace = omKeyInfo.getDataSize() * factor -
           keyArgs.getKeyLocationsList().size() * scmBlockSize * factor;
-      omBucketInfo.getUsedBytes().add(correctedSpace);
-      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
-      // We cannot acquire VOLUME_LOCK while holding BUCKET_LOCK. So
-      // release BUCKET_LOCK first.
-      if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
-            bucketName);
-        acquiredLock = false;
-      }
-
-      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
-          VOLUME_LOCK, volumeName);
-      omVolumeArgs.setUsedBytes(correctedSpace);
-      OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
-      if (acquireVolumeLock) {
-        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
-        acquireVolumeLock = false;
-      }
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      // update usedBytes.
+      omBucketInfo.incrUsedBytes(correctedSpace);
+      copyBucketInfo = omBucketInfo.copyObject();
+      omVolumeArgs.incrUsedBytes(correctedSpace);
+      copyVolumeArgs = omVolumeArgs.copyObject();
 
       omResponse.setCommitMultiPartUploadResponse(
           MultipartCommitUploadPartResponse.newBuilder()
@@ -254,14 +239,10 @@ public class S3MultipartUploadCommitPartRequest extends OMKeyRequest {
       omClientResponse = new S3MultipartUploadCommitPartResponse(
           createErrorOMResponse(omResponse, exception), multipartKey, openKey,
           multipartKeyInfo, oldPartKeyInfo, omKeyInfo,
-          ozoneManager.isRatisEnabled(), omVolumeArgs, omBucketInfo);
+          ozoneManager.isRatisEnabled(), copyVolumeArgs, copyBucketInfo);
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK,
-            volumeName, bucketName);
-      }
       if (acquireVolumeLock) {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }

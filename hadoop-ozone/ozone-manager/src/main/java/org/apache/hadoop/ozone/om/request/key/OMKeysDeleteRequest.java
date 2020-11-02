@@ -55,7 +55,6 @@ import static org.apache.hadoop.ozone.OzoneConsts.DELETED_KEYS_LIST;
 import static org.apache.hadoop.ozone.OzoneConsts.UNDELETED_KEYS_LIST;
 import static org.apache.hadoop.ozone.OzoneConsts.VOLUME;
 import static org.apache.hadoop.ozone.audit.OMAction.DELETE_KEYS;
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.PARTIAL_DELETE;
@@ -105,7 +104,6 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
         getOmRequest());
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
 
-    boolean acquiredLock = false;
     boolean acquireVolumeLock = false;
 
     int indexFailed = 0;
@@ -122,8 +120,8 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
       volumeName = bucket.realVolume();
       bucketName = bucket.realBucket();
 
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
       // Validate bucket and volume exists or not.
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
       String volumeOwner = getVolumeOwner(omMetadataManager, volumeName);
@@ -172,27 +170,11 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
         omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
         quotaReleased += sumBlockLengths(omKeyInfo);
       }
-      // update usedBytes atomically.
-      omBucketInfo.getUsedBytes().add(-quotaReleased);
+      // update usedBytes.
+      omBucketInfo.incrUsedBytes(-quotaReleased);
       OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
-      // We cannot acquire VOLUME_LOCK while holding BUCKET_LOCK. So
-      // release BUCKET_LOCK first.
-      if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
-            bucketName);
-        acquiredLock = false;
-      }
-
-      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
-          VOLUME_LOCK, volumeName);
-      omVolumeArgs.setUsedBytes(-quotaReleased);
+      omVolumeArgs.incrUsedBytes(-quotaReleased);
       OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
-      if (acquireVolumeLock) {
-        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
-        acquireVolumeLock = false;
-      }
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
 
       omClientResponse = new OMKeysDeleteResponse(omResponse
           .setDeleteKeysResponse(DeleteKeysResponse.newBuilder()
@@ -222,10 +204,6 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if (acquiredLock) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
-            bucketName);
-      }
       if (acquireVolumeLock) {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }

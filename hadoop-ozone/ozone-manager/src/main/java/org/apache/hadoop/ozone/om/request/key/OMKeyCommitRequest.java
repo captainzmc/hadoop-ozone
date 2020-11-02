@@ -58,7 +58,6 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
 
 /**
@@ -127,7 +126,6 @@ public class OMKeyCommitRequest extends OMKeyRequest {
     OmVolumeArgs omVolumeArgs = null;
     OmBucketInfo omBucketInfo = null;
     OMClientResponse omClientResponse = null;
-    boolean bucketLockAcquired = false;
     boolean acquireVolumeLock = false;
     Result result;
 
@@ -154,10 +152,8 @@ public class OMKeyCommitRequest extends OMKeyRequest {
         locationInfoList.add(OmKeyLocationInfo.getFromProtobuf(keyLocation));
       }
 
-      bucketLockAcquired =
-          omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-              volumeName, bucketName);
-
+      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
+          VOLUME_LOCK, volumeName);
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
       // Check for directory exists with same name, if it exists throw error. 
@@ -205,26 +201,12 @@ public class OMKeyCommitRequest extends OMKeyRequest {
       // be subtracted.
       long correctedSpace = omKeyInfo.getDataSize() * factor -
           locationInfoList.size() * scmBlockSize * factor;
-      omBucketInfo.getUsedBytes().add(correctedSpace);
-      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
-      // We cannot acquire VOLUME_LOCK while holding BUCKET_LOCK. So
-      // release BUCKET_LOCK first.
-      if (bucketLockAcquired) {
-        omMetadataManager.getLock().releaseLock(BUCKET_LOCK, volumeName,
-            bucketName);
-        bucketLockAcquired = false;
-      }
 
-      acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
-          VOLUME_LOCK, volumeName);
-      omVolumeArgs.setUsedBytes(correctedSpace);
+      // update usedBytes.
+      omBucketInfo.incrUsedBytes(correctedSpace);
+      OmBucketInfo copyBucketInfo = omBucketInfo.copyObject();
+      omVolumeArgs.incrUsedBytes(correctedSpace);
       OmVolumeArgs copyVolumeArgs = omVolumeArgs.copyObject();
-      if (acquireVolumeLock) {
-        omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
-        acquireVolumeLock = false;
-      }
-      bucketLockAcquired = omMetadataManager.getLock().acquireLock(BUCKET_LOCK,
-              volumeName, bucketName);
 
       omClientResponse = new OMKeyCommitResponse(omResponse.build(),
           omKeyInfo, dbOzoneKey, dbOpenKey, copyVolumeArgs, copyBucketInfo);
@@ -238,11 +220,6 @@ public class OMKeyCommitRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-
-      if(bucketLockAcquired) {
-        omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
-            bucketName);
-      }
       if (acquireVolumeLock) {
         omMetadataManager.getLock().releaseWriteLock(VOLUME_LOCK, volumeName);
       }

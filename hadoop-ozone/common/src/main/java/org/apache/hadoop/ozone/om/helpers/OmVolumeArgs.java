@@ -180,8 +180,8 @@ public final class OmVolumeArgs extends WithObjectID implements Auditable {
     return usedBytes;
   }
 
-  public void setUsedBytes(long usedBytes) {
-    this.usedBytes = this.usedBytes + usedBytes;
+  public void incrUsedBytes(long bytes) {
+    this.usedBytes = this.usedBytes + bytes;
   }
 
   /**
