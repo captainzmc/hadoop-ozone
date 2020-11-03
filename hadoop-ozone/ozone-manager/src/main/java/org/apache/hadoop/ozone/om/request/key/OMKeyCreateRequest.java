@@ -202,7 +202,7 @@ public class OMKeyCreateRequest extends OMKeyRequest {
     OmBucketInfo omBucketInfo = null;
     final List< OmKeyLocationInfo > locations = new ArrayList<>();
 
-    boolean acquiredLock = false;
+    boolean acquireBucketLock = false;
     boolean acquireVolumeLock = false;
     OMClientResponse omClientResponse = null;
     OMResponse.Builder omResponse = OmResponseUtil.getOMResponseBuilder(
@@ -221,8 +221,8 @@ public class OMKeyCreateRequest extends OMKeyRequest {
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      acquireBucketLock = omMetadataManager.getLock().acquireWriteLock(
+          BUCKET_LOCK, volumeName, bucketName);
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
       //TODO: We can optimize this get here, if getKmsProvider is null, then
       // bucket encryptionInfo will be not set. If this assumption holds
@@ -340,7 +340,7 @@ public class OMKeyCreateRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if (acquiredLock) {
+      if (acquireBucketLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
       }

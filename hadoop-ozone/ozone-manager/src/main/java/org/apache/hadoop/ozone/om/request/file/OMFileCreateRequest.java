@@ -184,7 +184,7 @@ public class OMFileCreateRequest extends OMKeyRequest {
 
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
 
-    boolean acquiredLock = false;
+    boolean acquireBucketLock = false;
     boolean acquireVolumeLock = false;
 
     OmKeyInfo omKeyInfo = null;
@@ -210,8 +210,8 @@ public class OMFileCreateRequest extends OMKeyRequest {
       // acquire lock
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      acquireBucketLock = omMetadataManager.getLock().acquireWriteLock(
+          BUCKET_LOCK, volumeName, bucketName);
 
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
@@ -330,7 +330,7 @@ public class OMFileCreateRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if (acquiredLock) {
+      if (acquireBucketLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
       }

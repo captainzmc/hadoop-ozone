@@ -105,7 +105,7 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
         getOmRequest());
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
 
-    boolean acquiredLock = false;
+    boolean acquireBucketLock = false;
     boolean acquireVolumeLock = false;
 
     int indexFailed = 0;
@@ -124,8 +124,8 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      acquiredLock = omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-          volumeName, bucketName);
+      acquireBucketLock = omMetadataManager.getLock().acquireWriteLock(
+          BUCKET_LOCK, volumeName, bucketName);
       // Validate bucket and volume exists or not.
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
       String volumeOwner = getVolumeOwner(omMetadataManager, volumeName);
@@ -208,7 +208,7 @@ public class OMKeysDeleteRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if (acquiredLock) {
+      if (acquireBucketLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
       }

@@ -127,7 +127,7 @@ public class OMKeyCommitRequest extends OMKeyRequest {
     OmVolumeArgs omVolumeArgs = null;
     OmBucketInfo omBucketInfo = null;
     OMClientResponse omClientResponse = null;
-    boolean bucketLockAcquired = false;
+    boolean acquireBucketLock = false;
     boolean acquireVolumeLock = false;
     Result result;
 
@@ -156,9 +156,8 @@ public class OMKeyCommitRequest extends OMKeyRequest {
 
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      bucketLockAcquired =
-          omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-              volumeName, bucketName);
+      acquireBucketLock = omMetadataManager.getLock().acquireWriteLock(
+          BUCKET_LOCK, volumeName, bucketName);
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
       // Check for directory exists with same name, if it exists throw error. 
@@ -225,7 +224,7 @@ public class OMKeyCommitRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if(bucketLockAcquired) {
+      if(acquireBucketLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK, volumeName,
             bucketName);
       }

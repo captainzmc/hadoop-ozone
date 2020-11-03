@@ -98,7 +98,7 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
 
     ozoneManager.getMetrics().incNumAbortMultipartUploads();
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
-    boolean acquiredLock = false;
+    boolean acquireBucketLock = false;
     boolean acquireVolumeLock = false;
     IOException exception = null;
     OmMultipartKeyInfo multipartKeyInfo = null;
@@ -117,9 +117,8 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
       // TODO to support S3 ACL later.
       acquireVolumeLock = omMetadataManager.getLock().acquireWriteLock(
           VOLUME_LOCK, volumeName);
-      acquiredLock =
-          omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK,
-              volumeName, bucketName);
+      acquireBucketLock = omMetadataManager.getLock().acquireWriteLock(
+          BUCKET_LOCK, volumeName, bucketName);
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
       multipartKey = omMetadataManager.getMultipartKey(
@@ -185,7 +184,7 @@ public class S3MultipartUploadAbortRequest extends OMKeyRequest {
     } finally {
       addResponseToDoubleBuffer(trxnLogIndex, omClientResponse,
           omDoubleBufferHelper);
-      if (acquiredLock) {
+      if (acquireBucketLock) {
         omMetadataManager.getLock().releaseWriteLock(BUCKET_LOCK,
             volumeName, bucketName);
       }
