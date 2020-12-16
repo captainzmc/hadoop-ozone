@@ -35,7 +35,7 @@ Administrators should be able to define how much storage space a Volume or Bucke
 
 a. By default, the quota for volume and bucket is not enabled.
 
-b. When volume quota is enabled, the total size of bucket quota cannot exceed volume.
+b. When volume quota is enabled, the total quota of the buckets, cannot exceed the volume quota.
 
 c. Bucket quota can be set separately without enabling Volume quota. The size of bucket quota is unrestricted at this point.
 
