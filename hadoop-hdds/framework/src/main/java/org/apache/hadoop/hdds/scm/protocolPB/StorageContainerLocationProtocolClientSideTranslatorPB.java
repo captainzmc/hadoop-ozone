@@ -288,6 +288,15 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
   }
 
   /**
+   * Ask SCM to delete containers by owner. SCM will remove
+   * containers mapping in its database.
+   */
+  @Override
+  public void deleteContainerForOwner(String owner) throws IOException {
+
+  }
+
+  /**
    * Queries a list of Nodes based on their operational state or health state.
    * Passing a null for either value acts as a wildcard for that state.
    *

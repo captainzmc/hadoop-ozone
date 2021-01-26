@@ -86,6 +86,20 @@ public interface ScmClient extends Closeable {
       throws IOException;
 
   /**
+   * Deletes all containers from SCM of specified owner.
+   * @param owner - ID of the container.
+   * @throws IOException
+   */
+  void deleteContainerOfOwner(String owner) throws IOException;
+
+//  /**
+//   * Deletes all containers from SCM of specified owner.
+//   * @param owner
+//   * @throws IOException
+//   */
+//  void deleteContainer(String owner) throws IOException;
+
+  /**
    * Deletes an existing container.
    * @param containerId - ID of the container.
    * @param force - true to forcibly delete the container.

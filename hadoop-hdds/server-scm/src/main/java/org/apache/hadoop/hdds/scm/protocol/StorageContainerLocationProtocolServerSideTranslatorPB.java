@@ -153,6 +153,13 @@ public final class StorageContainerLocationProtocolServerSideTranslatorPB
             .setGetContainerResponse(
                 getContainer(request.getGetContainerRequest()))
             .build();
+      case DeleteContainer:
+        return ScmContainerLocationResponse.newBuilder()
+            .setCmdType(request.getCmdType())
+            .setStatus(Status.OK)
+            .setGetContainerResponse(
+                getContainer(request.getGetContainerRequest()))
+            .build();
       case GetContainerWithPipeline:
         return ScmContainerLocationResponse.newBuilder()
             .setCmdType(request.getCmdType())
@@ -298,6 +305,7 @@ public final class StorageContainerLocationProtocolServerSideTranslatorPB
             .setStartMaintenanceNodesResponse(startMaintenanceNodes(
                 request.getStartMaintenanceNodesRequest()))
           .build();
+
       default:
         throw new IllegalArgumentException(
             "Unknown command type: " + request.getCmdType());

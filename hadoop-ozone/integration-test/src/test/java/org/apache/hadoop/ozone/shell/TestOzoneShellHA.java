@@ -87,6 +87,7 @@ public class TestOzoneShellHA {
   private static OzoneConfiguration conf = null;
   private static MiniOzoneCluster cluster = null;
   private static OzoneShell ozoneShell = null;
+  private static OzoneAdminShell ozoneAdminShell = null;
 
   private final ByteArrayOutputStream out = new ByteArrayOutputStream();
   private final ByteArrayOutputStream err = new ByteArrayOutputStream();
@@ -118,6 +119,7 @@ public class TestOzoneShellHA {
     testFile.createNewFile();
 
     ozoneShell = new OzoneShell();
+    ozoneAdminShell = new OzoneAdminShell();
 
     // Init HA cluster
     omServiceId = "om-service-test1";
@@ -187,6 +189,7 @@ public class TestOzoneShellHA {
     // Since there is no elegant way to pass Ozone config to the shell,
     // the idea is to use 'set' to place those OM HA configs.
     String[] argsWithHAConf = getHASetConfStrings(args);
+    LOG.error("=====argsWithHAConf==="+Arrays.toString(argsWithHAConf));
 
     cmd.parseWithHandlers(new RunLast(), exceptionHandler, argsWithHAConf);
   }
@@ -724,5 +727,34 @@ public class TestOzoneShellHA {
     objectStore.deleteVolume("vol3");
     objectStore.getVolume("vol4").deleteBucket("buck4");
     objectStore.deleteVolume("vol4");
+  }
+
+  @Test
+  @SuppressWarnings("methodlength")
+  public void testDeleteContainer() throws Exception {
+
+    ObjectStore objectStore = cluster.getClient().getObjectStore();
+
+//    // Test create with no quota
+//    String[] args = new String[]{"volume", "create", "vol"};
+//    execute(ozoneShell, args);
+//    out.reset();
+//
+//    args = new String[]{"bucket", "create", "vol/buck"};
+//    execute(ozoneShell, args);
+//    out.reset();
+//
+//    args = new String[]{"key", "put", "vol/buck/key1", "/etc/hosts"};
+//    execute(ozoneShell, args);
+//    out.reset();
+
+    String[] args = new String[]{"container", "list"};
+    execute(ozoneAdminShell, args);
+    System.out.println(out.toString());
+    out.reset();
+
+    objectStore.getVolume("vol").deleteBucket("buck");
+    objectStore.deleteVolume("vol");
+
   }
 }

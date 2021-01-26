@@ -357,10 +357,14 @@ public class ContainerOperationClient implements ScmClient {
     XceiverClientSpi client = null;
     try {
       client = xceiverClientManager.acquireClient(pipeline);
+      LOG.error("=========before delete pipeline Container:"+containerId);
       ContainerProtocolCalls
           .deleteContainer(client, containerId, force, null);
+      LOG.error("=========after delete pipeline Container:"+containerId);
       storageContainerLocationClient
           .deleteContainer(containerId);
+      LOG.error("=========after delete scm Container:"+containerId
+      );
       if (LOG.isDebugEnabled()) {
         LOG.debug("Deleted container {}, machines: {} ", containerId,
             pipeline.getNodes());
@@ -371,6 +375,42 @@ public class ContainerOperationClient implements ScmClient {
       }
     }
   }
+
+  @Override
+  public void deleteContainerOfOwner(String owner) throws IOException {
+
+  }
+
+//  @Override
+//  public void deleteContainer(String owner) throws IOException {
+//
+//  }
+
+//  /**
+//   * Deletes all containers from SCM of specified owner.
+//   *
+//   * @param owner
+//   * @throws IOException
+//   */
+//  @Override
+//  public void deleteContainerOfOwner(String owner) throws IOException {
+//    XceiverClientSpi client = null;
+//    try {
+//      client = xceiverClientManager.acquireClient(pipeline);
+//      ContainerProtocolCalls
+//          .deleteContainerOfOwner(owner);
+//      storageContainerLocationClient
+//          .deleteContainer(containerId);
+//      if (LOG.isDebugEnabled()) {
+//        LOG.debug("Deleted container {}, machines: {} ", containerId,
+//            pipeline.getNodes());
+//      }
+//    } finally {
+//      if (client != null) {
+//        xceiverClientManager.releaseClient(client, false);
+//      }
+//    }
+//  }
 
   /**
    * Delete the container, this will release any resource it uses.

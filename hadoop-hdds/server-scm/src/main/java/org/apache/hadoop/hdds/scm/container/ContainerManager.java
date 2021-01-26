@@ -115,6 +115,14 @@ public interface ContainerManager extends Closeable {
   void deleteContainer(ContainerID containerID) throws IOException;
 
   /**
+   * Deletes all containers from SCM of specified owner.
+   *
+   * @param  owner
+   * @throws IOException
+   */
+  void deleteContainerForOwner(String owner) throws IOException;
+
+  /**
    * Update container state.
    * @param containerID - Container ID
    * @param event - container life cycle event

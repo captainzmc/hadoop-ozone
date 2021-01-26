@@ -78,6 +78,8 @@ public class TestContainerOperations {
     assertEquals(container.getContainerInfo().getContainerID(), storageClient
         .getContainer(container.getContainerInfo().getContainerID())
         .getContainerID());
+
+    storageClient.deleteContainer(container.getContainerInfo().getContainerID(), true);
   }
 
 }

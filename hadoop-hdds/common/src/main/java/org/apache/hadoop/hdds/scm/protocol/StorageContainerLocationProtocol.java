@@ -119,6 +119,14 @@ public interface StorageContainerLocationProtocol extends Closeable {
   void deleteContainer(long containerID) throws IOException;
 
   /**
+   * Deletes all containers from SCM of specified owner.
+   *
+   * @param  owner
+   * @throws IOException
+   */
+  void deleteContainerForOwner(String owner) throws IOException;
+
+  /**
    *  Queries a list of Node Statuses. Passing a null for either opState or
    *  state acts like a wildcard returning all nodes in that state.
    * @param opState The node operational state

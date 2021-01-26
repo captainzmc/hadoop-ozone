@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -550,7 +551,35 @@ public class SCMContainerManager implements ContainerManager {
     return containerIDs;
   }
 
+  /**
+   * Returns all the container ID's matching with specified owner.
+   * @param owner
+   * @return NavigableSet<ContainerID>
+   */
+  private NavigableSet<ContainerID> getContainersForOwner(String owner)
+      throws IOException {
+    NavigableSet<ContainerID> containerIDs = new TreeSet<ContainerID>();
+    List<Pipeline> PipelineList = pipelineManager.getPipelines();
+    for (Pipeline pipeline : PipelineList) {
+      containerIDs.addAll(getContainersForOwner(pipeline, owner));
+    }
+    return containerIDs;
+  }
 
+  /**
+   * Deletes all containers from SCM of specified owner.
+   *
+   * @param  owner
+   * @throws IOException if container doesn't exist or container store failed
+   *                     to delete the
+   *                     specified key.
+   */
+  public void deleteContainerForOwner(String owner) throws IOException {
+    NavigableSet<ContainerID> containerIDs = getContainersForOwner(owner);
+    for(ContainerID id : containerIDs) {
+      deleteContainer(id);
+    }
+  }
 
   /**
    * Returns the latest list of DataNodes where replica for given containerId

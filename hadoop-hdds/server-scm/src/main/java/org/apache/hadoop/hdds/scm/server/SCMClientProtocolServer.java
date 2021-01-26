@@ -384,6 +384,33 @@ public class SCMClientProtocolServer implements
   }
 
   @Override
+  public void deleteContainerForOwner(String owner) throws IOException {
+    String remoteUser = getRpcRemoteUsername();
+    boolean auditSuccess = true;
+    Map<String, String> auditMap = Maps.newHashMap();
+    auditMap.put("ownerID", owner);
+    auditMap.put("remoteUser", remoteUser);
+    try {
+      getScm().checkAdminAccess(remoteUser);
+      scm.getContainerManager().deleteContainerForOwner(owner);
+    } catch (Exception ex) {
+      auditSuccess = false;
+      AUDIT.logWriteFailure(
+          buildAuditMessageForFailure(
+              SCMAction.DELETE_CONTAINER_OF_OWNER, auditMap, ex)
+      );
+      throw ex;
+    } finally {
+      if(auditSuccess) {
+        AUDIT.logWriteSuccess(
+            buildAuditMessageForSuccess(
+                SCMAction.DELETE_CONTAINER_OF_OWNER, auditMap)
+        );
+      }
+    }
+  }
+
+  @Override
   public List<HddsProtos.Node> queryNode(
       HddsProtos.NodeOperationalState opState, HddsProtos.NodeState state,
       HddsProtos.QueryScope queryScope, String poolName) throws
